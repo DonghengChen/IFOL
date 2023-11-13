@@ -3,6 +3,8 @@ import Mathlib.SetTheory.Cardinal.Basic
 import Mathlib.Data.Set.Basic
 open Set
 
+
+
 structure Signature where
   (function_symbols : Type)
   (relation_symbols : Type)
@@ -65,7 +67,6 @@ def substitution_term {σ : Signature} : term σ → Nat → term σ  → term �
 -- | atomic_formula r ts => exact (formula.atomic_formula r (fun i=> substitution_term (ts i) x t))
 
 
-#check Decidable.isTrue
 
 
 
@@ -96,7 +97,7 @@ def substitution_formula {σ : Signature} : formula σ → Nat → term σ → f
 
 inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
 | ref {Γ} {A} (h : A ∈ Γ) : proof Γ A
-| introI {Γ} {A B} (h: (proof (Γ∪{A}) B)): proof Γ (A →ᵢ B)
+| introI {Γ} (A B) (h: (proof (Γ∪{A}) B)): proof Γ (A →ᵢ B)
 | elimI {Γ Q} {A B} (h1: (proof Γ (A →ᵢ B)))(h2: (proof Q A)): proof (Γ ∪ Q) B
 | introA {Γ Q} {A B} (h1: proof Γ A)(h2: proof Q B): proof (Γ ∪ Q) (A ∧ᵢ B)
 | elimA1 {Γ} {A B} (h: proof Γ (A ∧ᵢ B)): proof Γ A
@@ -125,10 +126,11 @@ structure model (σ : Signature) :=
 (mono : ∀ u ∈ W, ∀ v ∈ W, R u v → (supp u) ⊂ (supp v))
 
 
+
 def force_form {σ : Signature}:  formula σ → world → (M: model σ ) →  Prop
+| formula.atomic_formula r ts => fun w => fun M=> (formula.atomic_formula r ts) ∈ (M.supp w)
 | formula.bottom => fun _ => fun _ => false
 | formula.negation f => fun w => fun M=> ∀(v:world), M.R w v → ¬ (force_form f w M)
-| formula.atomic_formula r ts => fun w => fun M=> (formula.atomic_formula r ts) ∈ (M.supp w)
 | formula.implication f1 f2 => fun w => fun M=> ∀ (v : world), M.R w v → force_form f1 v M → force_form f2 v M
 | formula.conjunction f1 f2 => fun w => fun M=> (force_form f1 w M) ∧ (force_form f2 w M)
 | formula.disjunction f1 f2 => fun w => fun M=> (force_form f1 w M) ∨ (force_form f2 w M)
@@ -136,5 +138,67 @@ def force_form {σ : Signature}:  formula σ → world → (M: model σ ) →  P
 | formula.universal_quantification x f => fun w => fun M=> ∀ (t :term σ ),∀ (v:world), M.R w v → force_form (substitution_formula f x t) v M
 -- | formula.equalities t1 t2 => fun w => sorry
 
+def depth{σ : Signature}{f:formula σ}{M : model σ} {w:world}:  force_form f w M  → Nat
+
+
+instance : partial_order force_form :=
+{
+  le := leq,
+  le_refl := λ a, le_refl a,
+  le_trans := λ a b c, le_trans,
+  le_antisymm := λ a b, le_antisymm
+}
+
+
+def monoR {σ :Signature}{u v: world }{f:formula σ}{M : model σ}{z1:u ∈ M.W} {z2:v ∈ M.W}:M.R u v → force_form f u  M → force_form f v M := by
+induction f
+{
+  rename_i fr finr
+  intro hr hp
+  have dr:M.supp u ⊂ M.supp v
+  apply M.mono
+  assumption'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
 def semantic_consequence {σ : Signature} (Γ : Set (formula σ)) (A : formula σ) : Prop :=
 ∀ (M : model σ), ∀ (w : world), (∀ (f :formula σ ),f ∈ Γ →  force_form f w M) → force_form A w M
+
+notation Γ "⊧" A => semantic_consequence Γ A
+
+-- lemma Zcombine {σ : Signature}{P Q: Set (formula σ)}{A B: formula σ} : (P ⊧ A) →  (Q ⊧ B ) → ((P ∪ Q) ⊧ (A ∧ᵢ B) ):=by
+-- intro h1 h2
+-- apply h1
+
+
+
+
+
+----proof of soundness
+-- def soundness {σ: Signature}{Q: Set (formula σ )}{A : formula σ } : (Q ⊢ A) → (Q ⊧ A) := by
+-- intro h
+-- cases h with
+-- | ref hp => intro M w h1;apply h1;assumption
+-- | introI A B hx =>
+--   intro M w h1
+--   have q:∀ (v : world), M.R w v → force_form A v M → force_form B v M:=by
+--     intro v raa c1
+--     have ss:(Q ∪ {A})⊧B:= (soundness hx)
+--     apply ss
+--     intro xf tx
+--     cases tx with
+--     | inl h0 =>
