@@ -65,7 +65,34 @@ cases src with
   | _ => exact term.free_variable n
 | function_application f ts => exact term.function_application f (fun q:Fin (σ.arity f)=> term_subsitution (ts q) m e)
 
+def formula_subsitution{σ : Signature}: formula σ → term σ  → term σ → formula σ :=
+fun f => fun m =>fun e => by
+cases f with
+| atomic_formula r ts => exact (# r) (fun q:Fin (σ.arity' r)=> term_subsitution (ts q) m e)
+| conjunction f1 f2 => exact (formula_subsitution f1 m e) ∧ᵢ (formula_subsitution f2 m e)
+| disjunction f1 f2 => exact (formula_subsitution f1 m e) ∨ᵢ (formula_subsitution f2 m e)
+| implication f1 f2 => exact (formula_subsitution f1 m e) →ᵢ (formula_subsitution f2 m e)
+| bottom  => exact ⊥
+| negation f => exact ¬ᵢ (formula_subsitution f m e)
+| existential_quantification f => exact ∃ᵢ(formula_subsitution f m e)
+| universal_quantification f => exact ∀ᵢ (formula_subsitution f m e)
 
+inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
+| ref {Γ} {A} (h : A ∈ Γ) : proof Γ A
+| introI {Γ} (A B) (h: (proof (Γ∪{A}) B)): proof Γ (A →ᵢ B)
+| elimI {Γ Q} {A B} (h1: (proof Γ (A →ᵢ B)))(h2: (proof Q A)): proof (Γ ∪ Q) B
+| introA {Γ Q} {A B} (h1: proof Γ A)(h2: proof Q B): proof (Γ ∪ Q) (A ∧ᵢ B)
+| elimA1 {Γ} {A B} (h: proof Γ (A ∧ᵢ B)): proof Γ A
+| elimA2 {Γ} {A B} (h: proof Γ (A ∧ᵢ B)): proof Γ B
+| introO1 {Γ} {A B} (h: proof Γ A): proof Γ (A ∨ᵢ B)
+| introO2 {Γ} {A B} (h: proof Γ B): proof Γ (A ∨ᵢ B)
+| elimO {Γ Q} {A B C} (h1: proof Γ (A ∨ᵢ B))(h2: proof (Γ ∪ {A}) C)(h3: proof (Γ ∪ {B}) C): proof (Γ ∪ Q) C
+| introN {Γ Q}{A B}(h1: proof (Γ∪{A}) B)(h2: proof (Q∪{A}) (¬ᵢB)):proof (Γ ∪ Q) (¬ᵢA)
+| ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ  B
+| introF {Γ}{A}(h:proof Γ A)(x:Nat): proof Γ (∀ᵢ ((formula_lift 0 1) A ))
+-- | elimF {Γ}{A}(h1: proof Γ (∀ᵢ A))(τ: term σ): proof Γ (formula_subsitution A (t))
+-- | introE {Γ}{A}(t: term σ)(x:term σ)(h: proof Γ  (formula_subsitution A x τ)): proof Γ (∃ᵢ A)
+-- | elimE{Γ Q}{A B}(h1: proof Γ ((∃ᵢ x) A))(h2: proof (Q ∪ {(∀ᵢ x) A}) B): proof (Γ ∪ Q) B
 
 -- def free_variables_term {σ : Signature} : term σ → Set Nat
 -- | term.free_variable x => {x}
@@ -125,22 +152,6 @@ cases src with
 -- | formula.universal_quantification y f => fun x => fun t => if y ∈  free_variables_term t then formula.universal_quantification y f else formula.universal_quantification y (substitution_formula f x t)
 -- --solve it in the future
 
--- inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
--- | ref {Γ} {A} (h : A ∈ Γ) : proof Γ A
--- | introI {Γ} (A B) (h: (proof (Γ∪{A}) B)): proof Γ (A →ᵢ B)
--- | elimI {Γ Q} {A B} (h1: (proof Γ (A →ᵢ B)))(h2: (proof Q A)): proof (Γ ∪ Q) B
--- | introA {Γ Q} {A B} (h1: proof Γ A)(h2: proof Q B): proof (Γ ∪ Q) (A ∧ᵢ B)
--- | elimA1 {Γ} {A B} (h: proof Γ (A ∧ᵢ B)): proof Γ A
--- | elimA2 {Γ} {A B} (h: proof Γ (A ∧ᵢ B)): proof Γ B
--- | introO1 {Γ} {A B} (h: proof Γ A): proof Γ (A ∨ᵢ B)
--- | introO2 {Γ} {A B} (h: proof Γ B): proof Γ (A ∨ᵢ B)
--- | elimO {Γ Q} {A B C} (h1: proof Γ (A ∨ᵢ B))(h2: proof (Γ ∪ {A}) C)(h3: proof (Γ ∪ {B}) C): proof (Γ ∪ Q) C
--- | introN {Γ Q}{A B}(h1: proof (Γ∪{A}) B)(h2: proof (Q∪{A}) (¬ᵢB)):proof (Γ ∪ Q) (¬ᵢA)
--- | ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ  B
--- | introF {Γ}{A}(h1:proof Γ A)(x:Nat)(h2 : x ∉ (free_variables_set Γ) ): proof Γ ((∀ᵢ x) A)
--- | elimF {Γ}{A}(h1: proof Γ ((∀ᵢ x) A))(τ: term σ): proof Γ (substitution_formula A x τ)
--- | introE {Γ}{A}(t: term σ)(x:Nat)(h: proof Γ  (substitution_formula A x τ)): proof Γ ((∃ᵢ x) A)
--- | elimE{Γ Q}{A B}(h1: proof Γ ((∃ᵢ x) A))(h2: proof (Q ∪ {(∀ᵢ x) A}) B): proof (Γ ∪ Q) B
 
 -- notation Γ "⊢" A => proof Γ A
 
