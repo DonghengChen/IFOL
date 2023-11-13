@@ -37,14 +37,15 @@ prefix:19 "#" => formula.atomic_formula
 prefix:20 "¬ᵢ" => formula.negation
 
 
-def term_lift{σ : Signature}: Nat → Nat → term σ → term σ := --i c n → n
+def term_lift{σ : Signature}: ℤ → Nat → term σ → term σ := --i c n → n
 fun i => fun c=> fun t=> by
 cases t with
-| free_variable n => exact if n < c then (term.free_variable n) else term.free_variable (n+i)
+| free_variable n =>
+exact if n < c then (term.free_variable n) else term.free_variable (n+i)
 | function_application f ts => exact term.function_application f (fun q:Fin (σ.arity f)=> term_lift i c (ts q))
 | Constant n => exact term.Constant n
 
-def formula_lift{σ : Signature}: Nat → Nat → formula σ → formula σ  :=
+def formula_lift{σ : Signature}: ℤ → Nat → formula σ → formula σ  :=
 fun i => fun c => fun f => by
 cases f with
 | atomic_formula r ts => exact formula.atomic_formula r (fun q:Fin (σ.arity' r)=> term_lift i c (ts q))
@@ -55,6 +56,9 @@ cases f with
 | negation f => exact ¬ᵢ (formula_lift i c f)
 | existential_quantification f => exact ∃ᵢ (formula_lift i (c+1) f)
 | universal_quantification f => exact ∀ᵢ (formula_lift i (c+1) f)
+
+
+
 
 def term_subsitution{σ : Signature}: term σ → term σ → term σ → term σ  :=
 fun src => fun m => fun e => by
@@ -77,6 +81,32 @@ cases f with
 | existential_quantification f => exact ∃ᵢ(formula_subsitution f m e)
 | universal_quantification f => exact ∀ᵢ (formula_subsitution f m e)
 
+
+def β_reduction{σ : Signature}: formula σ → term σ → formula σ :=
+fun f => fun t => by
+cases f with
+| atomic_formula r ts=> exact (# r) ts
+| conjunction f1 f2 =>exact  f1 ∧ᵢ f2
+| disjunction f1 f2 =>exact f1 ∨ᵢ f2
+| implication f1 f2 => exact f1 →ᵢ f2
+| bottom  => exact ⊥
+| negation f => exact ¬ᵢ f
+| existential_quantification f => exact formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 t))
+| universal_quantification f =>  exact formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 t))
+
+def depth {σ : Signature}: formula σ → Nat :=
+fun f => by
+cases f with
+| atomic_formula r ts=> exact 0
+| bottom  => exact 0
+| negation f => exact depth f
+| existential_quantification f => exact (depth f)+1
+| universal_quantification f=> exact (depth f)+1
+| conjunction f1 f2=> exact max (depth f1) (depth f2)
+| disjunction f1 f2=> exact max (depth f1) (depth f2)
+| implication f1 f2=> exact max (depth f1) (depth f2)
+
+
 inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
 | ref {Γ} {A} (h : A ∈ Γ) : proof Γ A
 | introI {Γ} (A B) (h: (proof (Γ∪{A}) B)): proof Γ (A →ᵢ B)
@@ -88,8 +118,10 @@ inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
 | introO2 {Γ} {A B} (h: proof Γ B): proof Γ (A ∨ᵢ B)
 | elimO {Γ Q} {A B C} (h1: proof Γ (A ∨ᵢ B))(h2: proof (Γ ∪ {A}) C)(h3: proof (Γ ∪ {B}) C): proof (Γ ∪ Q) C
 | introN {Γ Q}{A B}(h1: proof (Γ∪{A}) B)(h2: proof (Q∪{A}) (¬ᵢB)):proof (Γ ∪ Q) (¬ᵢA)
-| ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ  B
-| introF {Γ}{A}(h:proof Γ A)(x:Nat): proof Γ (∀ᵢ ((formula_lift 0 1) A ))
+| ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ B
+| introF {Γ}{A}(h:proof Γ A)(x:Nat): proof Γ (formula_subsitution (formula_lift 1 (depth A) A) (term.free_variable x) (term.free_variable (depth A)))
+| elimF {Γ}{A}(h:proof Γ (∀ᵢ A))(τ: term σ):proof Γ (formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 τ)))
+
 -- | elimF {Γ}{A}(h1: proof Γ (∀ᵢ A))(τ: term σ): proof Γ (formula_subsitution A (t))
 -- | introE {Γ}{A}(t: term σ)(x:term σ)(h: proof Γ  (formula_subsitution A x τ)): proof Γ (∃ᵢ A)
 -- | elimE{Γ Q}{A B}(h1: proof Γ ((∃ᵢ x) A))(h2: proof (Q ∪ {(∀ᵢ x) A}) B): proof (Γ ∪ Q) B
