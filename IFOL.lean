@@ -119,7 +119,7 @@ inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
 | elimO {Γ Q} {A B C} (h1: proof Γ (A ∨ᵢ B))(h2: proof (Γ ∪ {A}) C)(h3: proof (Γ ∪ {B}) C): proof (Γ ∪ Q) C
 | introN {Γ Q}{A B}(h1: proof (Γ∪{A}) B)(h2: proof (Q∪{A}) (¬ᵢB)):proof (Γ ∪ Q) (¬ᵢA)
 | ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ B
-| introF {Γ}{A}(h:proof Γ A)(x:Nat): proof Γ (formula_subsitution (formula_lift 1 (depth A) A) (term.free_variable x) (term.free_variable (depth A)))
+| introF {Γ}{A}(h:proof Γ A)(x:Nat): proof Γ formula.universal_quantification (formula_subsitution A (term.free_variable x) (term.free_variable (depth A)))
 | elimF {Γ}{A}(h:proof Γ (∀ᵢ A))(τ: term σ):proof Γ (formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 τ)))
 
 -- | elimF {Γ}{A}(h1: proof Γ (∀ᵢ A))(τ: term σ): proof Γ (formula_subsitution A (t))
