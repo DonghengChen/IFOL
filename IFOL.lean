@@ -13,7 +13,7 @@ structure Signature where
 
 inductive term (σ : Signature): Type
 | free_variable : Nat → term σ
-| function_application (f : σ.function_symbols) : (Fin (σ.arity f) → term σ ) → term σ
+-- | function_application (f : σ.function_symbols) : (Fin (σ.arity f) → term σ ) → term σ
 | Constant : Nat → term σ --constant is key word in Lean 4
 -- | relation_application (r : σ.relation_symbols) : (Fin (σ.arity' r) → term σ )
 
@@ -26,6 +26,18 @@ inductive formula (σ : Signature) : Type
 | implication : formula σ → formula σ → formula σ
 | bottom : formula σ
 | negation : formula σ → formula σ
+
+
+def term_eql {σ : Signature} :term σ → term σ → Prop := fun t1 => fun t2 =>by
+cases t1 with
+| free_variable n => cases t2 with
+  |free_variable m => exact n=m
+  |Constant _ => exact False
+| Constant n=> cases t2 with
+  |free_variable _ => exact False
+  | Constant m => exact n=m
+
+
 
 notation "⊥" => formula.bottom
 infixr:50 "→ᵢ" => formula.implication
@@ -42,7 +54,7 @@ fun i => fun c=> fun t=> by
 cases t with
 | free_variable n =>
 exact if n < c then (term.free_variable n) else term.free_variable (n+i)
-| function_application f ts => exact term.function_application f (fun q:Fin (σ.arity f)=> term_lift i c (ts q))
+-- | function_application f ts => exact term.function_application f (fun q:Fin (σ.arity f)=> term_lift i c (ts q))
 | Constant n => exact term.Constant n
 
 def formula_lift{σ : Signature}: ℤ → Nat → formula σ → formula σ  :=
@@ -60,26 +72,55 @@ cases f with
 
 
 
-def term_subsitution{σ : Signature}: term σ → term σ → term σ → term σ  :=
-fun src => fun m => fun e => by
+def term_subsitution{σ : Signature}: term σ → term σ → term σ → term σ  :=by
+intro src m e
 cases src with
-| Constant n => exact term.Constant n
 | free_variable n => cases m with
-  | free_variable m => exact if n=m then e else term.free_variable n
-  | _ => exact term.free_variable n
-| function_application f ts => exact term.function_application f (fun q:Fin (σ.arity f)=> term_subsitution (ts q) m e)
+  |free_variable n' => exact if n=n' then e else term.free_variable n
+  |Constant _ => exact term.free_variable n
+| Constant n=> cases m with
+  |free_variable _ => exact term.Constant n
+  | Constant n' => exact if n=n' then e else term.free_variable n
+
+def depth {σ : Signature}: formula σ → Nat :=
+fun f => by
+cases f with
+| atomic_formula r ts=> exact 0
+| bottom  => exact 0
+| negation f => exact depth f
+| existential_quantification f => exact (depth f)+1
+| universal_quantification f=> exact (depth f)+1
+| conjunction f1 f2=> exact max (depth f1) (depth f2)
+| disjunction f1 f2=> exact max (depth f1) (depth f2)
+| implication f1 f2=> exact max (depth f1) (depth f2)
 
 def formula_subsitution{σ : Signature}: formula σ → term σ  → term σ → formula σ :=
 fun f => fun m =>fun e => by
-cases f with
-| atomic_formula r ts => exact (# r) (fun q:Fin (σ.arity' r)=> term_subsitution (ts q) m e)
-| conjunction f1 f2 => exact (formula_subsitution f1 m e) ∧ᵢ (formula_subsitution f2 m e)
-| disjunction f1 f2 => exact (formula_subsitution f1 m e) ∨ᵢ (formula_subsitution f2 m e)
-| implication f1 f2 => exact (formula_subsitution f1 m e) →ᵢ (formula_subsitution f2 m e)
-| bottom  => exact ⊥
-| negation f => exact ¬ᵢ (formula_subsitution f m e)
-| existential_quantification f => exact ∃ᵢ(formula_subsitution f m e)
-| universal_quantification f => exact ∀ᵢ (formula_subsitution f m e)
+cases m with
+| Constant t =>
+  cases f with
+  | atomic_formula r ts => exact (# r) (fun q:Fin (σ.arity' r)=> term_subsitution (ts q) (term.Constant t) e)
+  | conjunction f1 f2 => exact (formula_subsitution f1 (term.Constant t)  e) ∧ᵢ (formula_subsitution f2 (term.Constant t) e)
+  | disjunction f1 f2 => exact (formula_subsitution f1 (term.Constant t)  e) ∨ᵢ (formula_subsitution f2 (term.Constant t) e)
+  | implication f1 f2 => exact (formula_subsitution f1 (term.Constant t)  e) →ᵢ (formula_subsitution f2 (term.Constant t) e)
+  | bottom  => exact ⊥
+  | negation f => exact ¬ᵢ (formula_subsitution f (term.Constant t) e)
+  | existential_quantification f => exact ∃ᵢ(formula_subsitution f (term.Constant t) e)
+  | universal_quantification f => exact ∀ᵢ (formula_subsitution f (term.Constant t) e)
+| free_variable t =>
+  cases f with
+  | atomic_formula r ts => exact (# r) (fun q:Fin (σ.arity' r)=> term_subsitution (ts q) (term.free_variable t) e)
+  | bottom  => exact ⊥
+  | negation f => exact ¬ᵢ (formula_subsitution f (term.free_variable t) e)
+  | existential_quantification f => exact ∃ᵢ(formula_subsitution f (term.free_variable t) e)
+  | universal_quantification f => exact ∀ᵢ (formula_subsitution f (term.free_variable t) e)
+  | conjunction f1 f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
+                         exact (formula_subsitution f1 (term.free_variable (t+(depth f1) - top)) e) ∧ᵢ (formula_subsitution f2 (term.free_variable  (t+(depth f2) - top)) e)
+  | disjunction f1 f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
+                         exact (formula_subsitution f1 (term.free_variable (t+(depth f1) - top)) e) ∨ᵢ (formula_subsitution f2 (term.free_variable  (t+(depth f2) - top)) e)
+  | implication f1 f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
+                         exact (formula_subsitution f1 (term.free_variable (t+(depth f1) - top)) e)  →ᵢ (formula_subsitution f2 (term.free_variable  (t+(depth f2) - top)) e)
+
 
 
 def β_reduction{σ : Signature}: formula σ → term σ → formula σ :=
@@ -94,17 +135,28 @@ cases f with
 | existential_quantification f => exact formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 t))
 | universal_quantification f =>  exact formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 t))
 
-def depth {σ : Signature}: formula σ → Nat :=
-fun f => by
-cases f with
-| atomic_formula r ts=> exact 0
-| bottom  => exact 0
-| negation f => exact depth f
-| existential_quantification f => exact (depth f)+1
-| universal_quantification f=> exact (depth f)+1
-| conjunction f1 f2=> exact max (depth f1) (depth f2)
-| disjunction f1 f2=> exact max (depth f1) (depth f2)
-| implication f1 f2=> exact max (depth f1) (depth f2)
+
+
+
+def free_variables_term {σ : Signature} : term σ → Nat → Set Nat
+| term.free_variable x => fun bound => if x>= bound then {x} else ∅
+| term.Constant _=> fun _ =>∅
+-- | term.function_application f ts => ⋃ (i:Fin (σ.arity f)),free_variables_term (ts i)
+
+def free_variables_formula {σ : Signature} : formula σ → Nat → Set Nat
+| formula.atomic_formula r ts=>fun bound=> ⋃ (i:Fin (σ.arity' r)),free_variables_term (ts i) bound
+| formula.negation f => fun bound=> free_variables_formula f bound
+-- | formula.equalities t1 t2=> (free_variables_term t1).union (free_variables_term t2)
+| formula.bottom =>fun _ => ∅
+| formula.conjunction f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
+| formula.disjunction f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
+| formula.implication f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
+| formula.existential_quantification f =>fun bound => free_variables_formula f (bound+1)
+| formula.universal_quantification f => fun bound => free_variables_formula f (bound+1)
+
+def free_variables_set {σ : Signature} : Set (formula σ) → Set Nat:=
+fun Γ => ⋃ (f ∈ Γ), free_variables_formula f 0
+
 
 
 inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
@@ -119,33 +171,10 @@ inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
 | elimO {Γ Q} {A B C} (h1: proof Γ (A ∨ᵢ B))(h2: proof (Γ ∪ {A}) C)(h3: proof (Γ ∪ {B}) C): proof (Γ ∪ Q) C
 | introN {Γ Q}{A B}(h1: proof (Γ∪{A}) B)(h2: proof (Q∪{A}) (¬ᵢB)):proof (Γ ∪ Q) (¬ᵢA)
 | ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ B
-| introF {Γ}{A}(h:proof Γ A)(x:Nat): proof Γ formula.universal_quantification (formula_subsitution A (term.free_variable x) (term.free_variable (depth A)))
+| introF {Γ}{A}(h1:proof Γ A)(x:Nat)(h2: x ∉ (free_variables_set Γ)): proof Γ (∀ᵢ (formula_subsitution A (term.free_variable x) (term.free_variable (depth A))))
 | elimF {Γ}{A}(h:proof Γ (∀ᵢ A))(τ: term σ):proof Γ (formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 τ)))
-
--- | elimF {Γ}{A}(h1: proof Γ (∀ᵢ A))(τ: term σ): proof Γ (formula_subsitution A (t))
--- | introE {Γ}{A}(t: term σ)(x:term σ)(h: proof Γ  (formula_subsitution A x τ)): proof Γ (∃ᵢ A)
--- | elimE{Γ Q}{A B}(h1: proof Γ ((∃ᵢ x) A))(h2: proof (Q ∪ {(∀ᵢ x) A}) B): proof (Γ ∪ Q) B
-
--- def free_variables_term {σ : Signature} : term σ → Set Nat
--- | term.free_variable x => {x}
--- | term.function_application f ts => ⋃ (i:Fin (σ.arity f)),free_variables_term (ts i)
-
--- def free_variables_formula {σ : Signature} : formula σ → Set Nat
--- | formula.atomic_formula r ts=> ⋃ (i:Fin (σ.arity' r)),free_variables_term (ts i)
--- | formula.negation f => free_variables_formula f
--- -- | formula.equalities t1 t2=> (free_variables_term t1).union (free_variables_term t2)
--- | formula.bottom => ∅
--- | formula.conjunction f1 f2 => (free_variables_formula f1).union (free_variables_formula f2)
--- | formula.disjunction f1 f2 => (free_variables_formula f1).union (free_variables_formula f2)
--- | formula.implication f1 f2 => (free_variables_formula f1).union (free_variables_formula f2)
--- | formula.existential_quantification x f => (free_variables_formula f).diff {x}
--- | formula.universal_quantification x f => (free_variables_formula f).diff {x}
-
--- def free_variables_set {σ : Signature} : Set (formula σ) → Set Nat:=
--- fun Γ => ⋃ (f ∈ Γ), free_variables_formula f
-
-
-
+| introE {Γ}{A}(t: term σ)(h: proof Γ A ): proof Γ (∃ᵢ formula_subsitution A t (term.free_variable (depth A)))
+| elimE {Γ Q}{A}(h1: proof Γ (∃ᵢ A))(h2: proof (Q ∪ {A}) B): proof (Γ ∪ Q) B
 -- def substitution_term {σ : Signature} : term σ → Nat → term σ  → term σ -- substitution_term t x t' substitutes t' for x in t
 -- | term.free_variable x, y, t => if x = y then t else term.free_variable x
 -- | term.function_application f ts, y, t => term.function_application f (fun i => substitution_term (ts i) y t)
