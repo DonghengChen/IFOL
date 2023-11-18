@@ -12,7 +12,7 @@ structure Signature where
   (arity' : relation_symbols → Nat)
 
 inductive term (σ : Signature): Type
-| free_variable : Nat → term σ
+| free_variable : ℤ  → term σ
 -- | function_application (f : σ.function_symbols) : (Fin (σ.arity f) → term σ ) → term σ
 | Constant : Nat → term σ --constant is key word in Lean 4
 -- | relation_application (r : σ.relation_symbols) : (Fin (σ.arity' r) → term σ )
@@ -138,15 +138,14 @@ cases f with
 
 
 
-def free_variables_term {σ : Signature} : term σ → Nat → Set Nat
+def free_variables_term {σ : Signature} : term σ → ℤ  → Set ℤ
 | term.free_variable x => fun bound => if x>= bound then {x} else ∅
 | term.Constant _=> fun _ =>∅
--- | term.function_application f ts => ⋃ (i:Fin (σ.arity f)),free_variables_term (ts i)
 
-def free_variables_formula {σ : Signature} : formula σ → Nat → Set Nat
+
+def free_variables_formula {σ : Signature} : formula σ → ℤ  → Set ℤ
 | formula.atomic_formula r ts=>fun bound=> ⋃ (i:Fin (σ.arity' r)),free_variables_term (ts i) bound
 | formula.negation f => fun bound=> free_variables_formula f bound
--- | formula.equalities t1 t2=> (free_variables_term t1).union (free_variables_term t2)
 | formula.bottom =>fun _ => ∅
 | formula.conjunction f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
 | formula.disjunction f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
@@ -154,7 +153,7 @@ def free_variables_formula {σ : Signature} : formula σ → Nat → Set Nat
 | formula.existential_quantification f =>fun bound => free_variables_formula f (bound+1)
 | formula.universal_quantification f => fun bound => free_variables_formula f (bound+1)
 
-def free_variables_set {σ : Signature} : Set (formula σ) → Set Nat:=
+def free_variables_set {σ : Signature} : Set (formula σ) → Set ℤ :=
 fun Γ => ⋃ (f ∈ Γ), free_variables_formula f 0
 
 
@@ -171,19 +170,12 @@ inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
 | elimO {Γ Q} {A B C} (h1: proof Γ (A ∨ᵢ B))(h2: proof (Γ ∪ {A}) C)(h3: proof (Γ ∪ {B}) C): proof (Γ ∪ Q) C
 | introN {Γ Q}{A B}(h1: proof (Γ∪{A}) B)(h2: proof (Q∪{A}) (¬ᵢB)):proof (Γ ∪ Q) (¬ᵢA)
 | ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ B
-| introF {Γ}{A}(h1:proof Γ A)(x:Nat)(h2: x ∉ (free_variables_set Γ)): proof Γ (∀ᵢ (formula_subsitution A (term.free_variable x) (term.free_variable (depth A))))
+| introF {Γ}{A}(h1:proof Γ A)(x:ℤ )(h2: x ∉ (free_variables_set Γ)): proof Γ (∀ᵢ (formula_subsitution A (term.free_variable x) (term.free_variable (depth A))))
 | elimF {Γ}{A}(h:proof Γ (∀ᵢ A))(τ: term σ):proof Γ (formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 τ)))
 | introE {Γ}{A}(t: term σ)(h: proof Γ A ): proof Γ (∃ᵢ formula_subsitution A t (term.free_variable (depth A)))
 | elimE {Γ Q}{A}(h1: proof Γ (∃ᵢ A))(h2: proof (Q ∪ {A}) B): proof (Γ ∪ Q) B
--- def substitution_term {σ : Signature} : term σ → Nat → term σ  → term σ -- substitution_term t x t' substitutes t' for x in t
--- | term.free_variable x, y, t => if x = y then t else term.free_variable x
--- | term.function_application f ts, y, t => term.function_application f (fun i => substitution_term (ts i) y t)
 
--- -- def substitution_formula {σ : Signature} : formula σ → Nat → term σ → formula σ := by
--- -- intro f x t
--- -- cases f with
--- -- | atomic_formula r ts => exact (formula.atomic_formula r (fun i=> substitution_term (ts i) x t))
-
+notation Γ "⊢" A => proof Γ A
 
 
 
@@ -201,46 +193,57 @@ inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
 
 -- | function_application f ts =>
 
--- def substitution_formula {σ : Signature} : formula σ → Nat → term σ → formula σ
--- | formula.bottom => fun _    => fun _ => ⊥
--- | formula.negation f=> fun x => fun t => substitution_formula f x t
--- | formula.atomic_formula r ts=> fun x => fun t => formula.atomic_formula r (fun i=> substitution_term (ts i) x t)
--- -- | formula.equalities t1 t2   => fun x => fun t => (substitution_term t1 x t) ≡ᵢ (substitution_term t2 x t)
--- | formula.implication f1 f2  => fun x => fun t => (substitution_formula f1 x t) →ᵢ (substitution_formula f2 x t)
--- | formula.conjunction f1 f2  => fun x => fun t => (substitution_formula f1 x t) ∧ᵢ (substitution_formula f2 x t)
--- | formula.disjunction f1 f2  => fun x => fun t => (substitution_formula f1 x t) ∨ᵢ (substitution_formula f2 x t)
--- | formula.existential_quantification y f => fun x => fun t =>if y ∈  free_variables_term t then formula.existential_quantification y f else formula.existential_quantification y (substitution_formula f x t)
--- | formula.universal_quantification y f => fun x => fun t => if y ∈  free_variables_term t then formula.universal_quantification y f else formula.universal_quantification y (substitution_formula f x t)
--- --solve it in the future
-
-
--- notation Γ "⊢" A => proof Γ A
-
--- def world := Nat
-
-
--- structure model (σ : Signature) :=
--- (W: Set world)
--- (R: world → world → Prop)
--- (supp: world → Set (formula σ) ) --How to specificate atomic formula
--- (refl : ∀ w ∈ W, R w w)
--- (trans : ∀ w ∈ W, ∀ v ∈ W, ∀ u ∈ W, R w v → R v u → R w u)
--- (mono : ∀ u ∈ W, ∀ v ∈ W, R u v → (supp u) ⊂ (supp v))
 
 
 
--- def force_form {σ : Signature}:  formula σ → world → (M: model σ ) →  Prop
--- | formula.atomic_formula r ts => fun w => fun M=> (formula.atomic_formula r ts) ∈ (M.supp w)
--- | formula.bottom => fun _ => fun _ => false
--- | formula.negation f => fun w => fun M=> ∀(v:world), M.R w v → ¬ (force_form f w M)
--- | formula.implication f1 f2 => fun w => fun M=> ∀ (v : world), M.R w v → force_form f1 v M → force_form f2 v M
--- | formula.conjunction f1 f2 => fun w => fun M=> (force_form f1 w M) ∧ (force_form f2 w M)
--- | formula.disjunction f1 f2 => fun w => fun M=> (force_form f1 w M) ∨ (force_form f2 w M)
--- | formula.existential_quantification x f => fun w => fun M=> ∃ (t: term σ ), force_form (substitution_formula f x t) w M
--- | formula.universal_quantification x f => fun w => fun M=> ∀ (t :term σ ),∀ (v:world), M.R w v → force_form (substitution_formula f x t) v M
--- -- | formula.equalities t1 t2 => fun w => sorry
 
--- def depth{σ : Signature}{f:formula σ}{M : model σ} {w:world}:  force_form f w M  → Nat
+def world := Type
+def obj := Type
+
+def restrict_formula {σ : Signature} : (Nat → obj ) → obj → term σ → obj :=
+fun beta => fun free_obj => fun t => by cases t with
+| free_variable _ => exact free_obj
+| Constant n => exact beta n
+
+structure model (σ : Signature) :=
+(W: Set world)
+(R: world → world → Prop)
+(D: world → Set obj ) -- Domain
+(α: (w:world) → σ.relation_symbols → (Fin (σ.arity' r) → (D w) ) → Prop)
+(β: (w:world) → Nat → (D w) ) --Nat is the index of Constant
+(refl : ∀ w ∈ W, R w w)
+(trans : ∀ w ∈ W, ∀ v ∈ W, ∀ u ∈ W, R w v → R v u → R w u)
+(mono : ∀ u ∈ W, ∀ v ∈ W, R u v → (D u) ⊂ (D v))
+(natural_transfer: (u v: world) → R u v → (D u) → (D v)) --transfer obj in Du to Dv
+(mono_R: ∀ u ∈ W, ∀ v ∈ W, ∀ r:σ.relation_symbols , ∀ args: (Fin (σ.arity' r) → (D u)), (h: R u v) → (α u r args) →  (α v r (fun q:Fin (σ.arity' r) => (natural_transfer u v h (args q)) )))
+
+
+def modify_value_function{σ : Signature} : (M:model σ) → (term σ → (M.D w)) → ℤ → (M.D w) → (term σ → (M.D w)) :=
+fun M=> fun v=> fun id => fun item => fun t=> by cases t with
+| free_variable z => if id = z then exact item else exact (v (term.free_variable z))
+| Constant z => exact v (term.Constant z)
+
+def formula_relation{σ : Signature}:formula σ → formula σ → Prop := fun f1 =>fun f2 => (depth f1) < (depth f2)
+
+def force_form {σ : Signature}: formula σ → Nat → (w:world) → (M:model σ) → (term σ → (M.D w)) → Prop
+| formula.atomic_formula r ts => fun n =>fun w => fun M=> fun v=> M.α w r (fun index=> (v (term_lift (-n) 0 (ts index))))
+| formula.bottom =>  fun _  => fun _ => fun _ => fun _ => false
+| formula.negation f =>fun n=> fun w => fun M=> fun v=> ∀(u:world), (h:M.R w u) → ¬ (force_form f n u M) (fun t=> M.natural_transfer w u h (v t))
+| formula.implication f1 f2 =>fun n=>  fun w => fun M=>  fun v=>∀ (u : world), (h:M.R w u) → (force_form f1 n w M v) → (force_form f2 n u M (fun t=> M.natural_transfer w u h (v t)))
+| formula.conjunction f1 f2 =>fun n=>  fun w => fun M=>  fun v=> (force_form f1 n w M v) ∧ (force_form f2 n w M v)
+| formula.disjunction f1 f2 =>fun n=>  fun w => fun M=>  fun v=> (force_form f1 n w M v) ∨ (force_form f2 n w M v)
+| formula.existential_quantification f =>fun n=>  fun w => fun M=>  fun v=> ∃ (t:M.D w) , force_form (formula_subsitution f (term.free_variable (depth f)) (term.free_variable (-n-1))) (n+1) w M (modify_value_function M v (-n-1) t)
+| formula.universal_quantification f =>fun n=>  fun w => fun M=>  fun v=> ∀ (t:M.D w) , force_form (formula_subsitution f (term.free_variable (depth f)) (term.free_variable (-n-1))) (n+1) w M (modify_value_function M v (-n-1) t)
+-- | formula.equalities t1 t2 => fun w => sorry
+decreasing_by sorry  --fix in the future
+
+
+
+
+
+
+
+
 
 
 -- instance : partial_order force_form :=
