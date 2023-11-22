@@ -238,52 +238,10 @@ def force_form {σ : Signature}: formula σ → Nat → (w:world) → (M:model �
 decreasing_by sorry  --fix in the future
 
 
+def semantic_consequence {σ : Signature} (Γ : Set (formula σ)) (A : formula σ) : Prop :=
+∀ (M : model σ), ∀ (w : world), ∀ (v : term σ → (M.D w)), (∀ (f :formula σ ),f ∈ Γ →  force_form f 0 w M v) → force_form A 0 w M v
 
-
-
-
-
-
-
-
--- instance : partial_order force_form :=
--- {
---   le := leq,
---   le_refl := λ a, le_refl a,
---   le_trans := λ a b c, le_trans,
---   le_antisymm := λ a b, le_antisymm
--- }
-
-
--- def monoR {σ :Signature}{u v: world }{f:formula σ}{M : model σ}{z1:u ∈ M.W} {z2:v ∈ M.W}:M.R u v → force_form f u  M → force_form f v M := by
--- induction f
--- {
---   rename_i fr finr
---   intro hr hp
---   have dr:M.supp u ⊂ M.supp v
---   apply M.mono
---   assumption'}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- def semantic_consequence {σ : Signature} (Γ : Set (formula σ)) (A : formula σ) : Prop :=
--- ∀ (M : model σ), ∀ (w : world), (∀ (f :formula σ ),f ∈ Γ →  force_form f w M) → force_form A w M
-
--- notation Γ "⊧" A => semantic_consequence Γ A
+notation Γ "⊧" A => semantic_consequence Γ A
 
 -- lemma Zcombine {σ : Signature}{P Q: Set (formula σ)}{A B: formula σ} : (P ⊧ A) →  (Q ⊧ B ) → ((P ∪ Q) ⊧ (A ∧ᵢ B) ):=by
 -- intro h1 h2
