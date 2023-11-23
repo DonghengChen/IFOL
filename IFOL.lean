@@ -1,192 +1,172 @@
 import Mathlib.Init.Set
 import Mathlib.SetTheory.Cardinal.Basic
 import Mathlib.Data.Set.Basic
+import Mathlib.Tactic
 open Set
 
 
 
 structure Signature where
-  (function_symbols : Type)
-  (relation_symbols : Type)
-  (arity : function_symbols → Nat)
-  (arity' : relation_symbols → Nat)
+  function_symbols : Type
+  relation_symbols : Type
+  arity : function_symbols → Nat
+  arity' : relation_symbols → Nat
 
-inductive term (σ : Signature): Type
-| free_variable : ℤ  → term σ
--- | function_application (f : σ.function_symbols) : (Fin (σ.arity f) → term σ ) → term σ
-| Constant : Nat → term σ --constant is key word in Lean 4
--- | relation_application (r : σ.relation_symbols) : (Fin (σ.arity' r) → term σ )
+inductive Term (σ : Signature): Type
+| free_variable : ℤ  → Term σ
+-- | function_application (f : σ.function_symbols) : (Fin (σ.arity f) → Term σ ) → Term σ
+| constant : Nat → Term σ --constant is key word in Lean 4
+-- | relation_application (r : σ.relation_symbols) : (Fin (σ.arity' r) → Term σ )
 
-inductive formula (σ : Signature) : Type
-| atomic_formula : (r : σ.relation_symbols) → (Fin (σ.arity' r) → term σ ) → formula σ
-| conjunction : formula σ → formula σ → formula σ
-| disjunction : formula σ → formula σ → formula σ
-| existential_quantification : formula σ → formula σ
-| universal_quantification :  formula σ → formula σ
-| implication : formula σ → formula σ → formula σ
-| bottom : formula σ
-| negation : formula σ → formula σ
+inductive Formula (σ : Signature) : Type
+  | atomic_formula : (r : σ.relation_symbols) → (Fin (σ.arity' r) → Term σ ) → Formula σ
+  | conjunction : Formula σ → Formula σ → Formula σ
+  | disjunction : Formula σ → Formula σ → Formula σ
+  | existential_quantification : Formula σ → Formula σ
+  | universal_quantification :  Formula σ → Formula σ
+  | implication : Formula σ → Formula σ → Formula σ
+  | bottom : Formula σ
+  | negation : Formula σ → Formula σ
 
-
-def term_eql {σ : Signature} :term σ → term σ → Prop := fun t1 => fun t2 =>by
-cases t1 with
-| free_variable n => cases t2 with
-  |free_variable m => exact n=m
-  |Constant _ => exact False
-| Constant n=> cases t2 with
-  |free_variable _ => exact False
-  | Constant m => exact n=m
+def Term_eql : Term σ → Term σ → Prop
+  | .free_variable n, .free_variable m => n = m
+  | .constant n, .constant m => n = m
+  | _,_ => False
 
 
-
-notation "⊥" => formula.bottom
-infixr:50 "→ᵢ" => formula.implication
-infixr:40 "∧ᵢ" => formula.conjunction
-infixr:30 "∨ᵢ" => formula.disjunction
-prefix:25 "∃ᵢ" => formula.existential_quantification
-prefix:24 "∀ᵢ" => formula.universal_quantification
-prefix:19 "#" => formula.atomic_formula
-prefix:20 "¬ᵢ" => formula.negation
-
-
-def term_lift{σ : Signature}: ℤ → Nat → term σ → term σ := --i c n → n
-fun i => fun c=> fun t=> by
-cases t with
-| free_variable n =>
-exact if n < c then (term.free_variable n) else term.free_variable (n+i)
--- | function_application f ts => exact term.function_application f (fun q:Fin (σ.arity f)=> term_lift i c (ts q))
-| Constant n => exact term.Constant n
-
-def formula_lift{σ : Signature}: ℤ → Nat → formula σ → formula σ  :=
-fun i => fun c => fun f => by
-cases f with
-| atomic_formula r ts => exact formula.atomic_formula r (fun q:Fin (σ.arity' r)=> term_lift i c (ts q))
-| conjunction f1 f2 => exact (formula_lift i c f1) ∧ᵢ (formula_lift i c f2)
-| disjunction f1 f2 => exact (formula_lift i c f1) ∨ᵢ (formula_lift i c f2)
-| implication f1 f2 => exact (formula_lift i c f1) →ᵢ (formula_lift i c f2)
-| bottom  => exact ⊥
-| negation f => exact ¬ᵢ (formula_lift i c f)
-| existential_quantification f => exact ∃ᵢ (formula_lift i (c+1) f)
-| universal_quantification f => exact ∀ᵢ (formula_lift i (c+1) f)
+notation "⊥" => Formula.bottom
+infixr:50 "→ᵢ" => Formula.implication
+infixr:40 "∧ᵢ" => Formula.conjunction
+infixr:30 "∨ᵢ" => Formula.disjunction
+prefix:25 "∃ᵢ" => Formula.existential_quantification
+prefix:24 "∀ᵢ" => Formula.universal_quantification
+prefix:19 "#" => Formula.atomic_formula
+prefix:20 "¬ᵢ" => Formula.negation
 
 
+def Term.lift (i : ℤ) (c : Nat) : Term σ → Term σ --i c n → n
+  | .free_variable n =>
+    if n < c then
+      free_variable n
+    else
+      free_variable (n+i)
+  -- | function_application f ts => exact Term.function_application f (fun q:Fin (σ.arity f)=> Term_lift i c (ts q))
+  | .constant n => constant n
+
+def Formula.lift (i : ℤ) (c : Nat) : Formula σ → Formula σ
+  | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).lift i c)
+  | f1 ∧ᵢ f2 =>  (f1.lift i c) ∧ᵢ (f2.lift i c)
+  | f1 ∨ᵢ f2 =>  (f1.lift i c) ∨ᵢ (f2.lift i c)
+  | f1 →ᵢ f2 =>  (f1.lift i c) →ᵢ (f2.lift i c)
+  | ⊥ => ⊥
+  | ¬ᵢ f =>  ¬ᵢ (f.lift i c)
+  | ∃ᵢ f =>  ∃ᵢ (f.lift i (c+1))
+  | ∀ᵢ f => ∀ᵢ (f.lift i (c+1))
 
 
-def term_subsitution{σ : Signature}: term σ → term σ → term σ → term σ  :=by
-intro src m e
-cases src with
-| free_variable n => cases m with
-  |free_variable n' => exact if n=n' then e else term.free_variable n
-  |Constant _ => exact term.free_variable n
-| Constant n=> cases m with
-  |free_variable _ => exact term.Constant n
-  | Constant n' => exact if n=n' then e else term.free_variable n
-
-def depth {σ : Signature}: formula σ → Nat :=
-fun f => by
-cases f with
-| atomic_formula r ts=> exact 0
-| bottom  => exact 0
-| negation f => exact depth f
-| existential_quantification f => exact (depth f)+1
-| universal_quantification f=> exact (depth f)+1
-| conjunction f1 f2=> exact max (depth f1) (depth f2)
-| disjunction f1 f2=> exact max (depth f1) (depth f2)
-| implication f1 f2=> exact max (depth f1) (depth f2)
-
-def formula_subsitution{σ : Signature}: formula σ → term σ  → term σ → formula σ :=
-fun f => fun m =>fun e => by
-cases m with
-| Constant t =>
-  cases f with
-  | atomic_formula r ts => exact (# r) (fun q:Fin (σ.arity' r)=> term_subsitution (ts q) (term.Constant t) e)
-  | conjunction f1 f2 => exact (formula_subsitution f1 (term.Constant t)  e) ∧ᵢ (formula_subsitution f2 (term.Constant t) e)
-  | disjunction f1 f2 => exact (formula_subsitution f1 (term.Constant t)  e) ∨ᵢ (formula_subsitution f2 (term.Constant t) e)
-  | implication f1 f2 => exact (formula_subsitution f1 (term.Constant t)  e) →ᵢ (formula_subsitution f2 (term.Constant t) e)
-  | bottom  => exact ⊥
-  | negation f => exact ¬ᵢ (formula_subsitution f (term.Constant t) e)
-  | existential_quantification f => exact ∃ᵢ(formula_subsitution f (term.Constant t) e)
-  | universal_quantification f => exact ∀ᵢ (formula_subsitution f (term.Constant t) e)
-| free_variable t =>
-  cases f with
-  | atomic_formula r ts => exact (# r) (fun q:Fin (σ.arity' r)=> term_subsitution (ts q) (term.free_variable t) e)
-  | bottom  => exact ⊥
-  | negation f => exact ¬ᵢ (formula_subsitution f (term.free_variable t) e)
-  | existential_quantification f => exact ∃ᵢ(formula_subsitution f (term.free_variable t) e)
-  | universal_quantification f => exact ∀ᵢ (formula_subsitution f (term.free_variable t) e)
-  | conjunction f1 f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                         exact (formula_subsitution f1 (term.free_variable (t+(depth f1) - top)) e) ∧ᵢ (formula_subsitution f2 (term.free_variable  (t+(depth f2) - top)) e)
-  | disjunction f1 f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                         exact (formula_subsitution f1 (term.free_variable (t+(depth f1) - top)) e) ∨ᵢ (formula_subsitution f2 (term.free_variable  (t+(depth f2) - top)) e)
-  | implication f1 f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                         exact (formula_subsitution f1 (term.free_variable (t+(depth f1) - top)) e)  →ᵢ (formula_subsitution f2 (term.free_variable  (t+(depth f2) - top)) e)
+def Term.subsitution (src m e: Term σ) : Term σ :=
+  match src,m with
+  | free_variable n, free_variable n' =>  if n=n' then e else free_variable n
+  | constant n, constant n' => if n=n' then e else free_variable n
+  | free_variable n, constant _ =>  free_variable n
+  | constant n, free_variable _ => constant n
 
 
+def Formula.depth : Formula σ → Nat
+  | atomic_formula .. | ⊥ => 0
+  | ¬ᵢ f => depth f
+  | ∃ᵢ f | ∀ᵢ f => (depth f) + 1
+  | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => max (depth f1) (depth f2)
 
-def β_reduction{σ : Signature}: formula σ → term σ → formula σ :=
-fun f => fun t => by
-cases f with
-| atomic_formula r ts=> exact (# r) ts
-| conjunction f1 f2 =>exact  f1 ∧ᵢ f2
-| disjunction f1 f2 =>exact f1 ∨ᵢ f2
-| implication f1 f2 => exact f1 →ᵢ f2
-| bottom  => exact ⊥
-| negation f => exact ¬ᵢ f
-| existential_quantification f => exact formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 t))
-| universal_quantification f =>  exact formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 t))
+@[simp]
+def Formula.size : Formula σ → Nat
+  | atomic_formula .. | ⊥ => 0
+  | ¬ᵢ f | ∃ᵢ f | ∀ᵢ f => f.size + 1
+  | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => f1.size + f2.size +1
 
+def Formula.subsitution (f : Formula σ) (m e: Term σ) : Formula σ :=
+  match m with
+  | .constant t => match f with
+    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution  (.constant t) e)
+    | f1 ∧ᵢ f2 => (f1.subsitution (.constant t) e) ∧ᵢ (f2.subsitution (.constant t) e)
+    | f1 ∨ᵢ f2 => (f1.subsitution (.constant t) e) ∨ᵢ (f2.subsitution (.constant t) e)
+    | f1 →ᵢ f2 => (f1.subsitution (.constant t) e) →ᵢ (f2.subsitution (.constant t) e)
+    | ⊥  => ⊥
+    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.constant t) e)
+    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.constant t) e)
+    | ∀ᵢ f => ∀ᵢ (f.subsitution (.constant t) e)
+  | .free_variable t => match f with
+    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution (.free_variable t) e)
+    | ⊥  => ⊥
+    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.free_variable t) e)
+    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.free_variable t) e)
+    | ∀ᵢ f => ∀ᵢ (f.subsitution (.free_variable t) e)
+    | f1 ∧ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
+                  (f1.subsitution (.free_variable (t+(depth f1) - top)) e) ∧ᵢ (f2.subsitution (.free_variable  (t+(depth f2) - top)) e)
+    | f1 ∨ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
+                  (f1.subsitution (.free_variable (t+(depth f1) - top)) e) ∨ᵢ (f2.subsitution (.free_variable  (t+(depth f2) - top)) e)
+    | f1 →ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
+                  (f1.subsitution (.free_variable (t+(depth f1) - top)) e)  →ᵢ (f2.subsitution (.free_variable  (t+(depth f2) - top)) e)
 
-
-
-def free_variables_term {σ : Signature} : term σ → ℤ  → Set ℤ
-| term.free_variable x => fun bound => if x>= bound then {x} else ∅
-| term.Constant _=> fun _ =>∅
-
-
-def free_variables_formula {σ : Signature} : formula σ → ℤ  → Set ℤ
-| formula.atomic_formula r ts=>fun bound=> ⋃ (i:Fin (σ.arity' r)),free_variables_term (ts i) bound
-| formula.negation f => fun bound=> free_variables_formula f bound
-| formula.bottom =>fun _ => ∅
-| formula.conjunction f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
-| formula.disjunction f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
-| formula.implication f1 f2 => fun bound =>(free_variables_formula f1 bound).union (free_variables_formula f2 bound)
-| formula.existential_quantification f =>fun bound => free_variables_formula f (bound+1)
-| formula.universal_quantification f => fun bound => free_variables_formula f (bound+1)
-
-def free_variables_set {σ : Signature} : Set (formula σ) → Set ℤ :=
-fun Γ => ⋃ (f ∈ Γ), free_variables_formula f 0
-
-
-
-inductive proof {σ : Signature} : Set (formula σ) → formula σ → Type
-| ref {Γ} {A} (h : A ∈ Γ) : proof Γ A
-| introI {Γ} (A B) (h: (proof (Γ∪{A}) B)): proof Γ (A →ᵢ B)
-| elimI {Γ Q} {A B} (h1: (proof Γ (A →ᵢ B)))(h2: (proof Q A)): proof (Γ ∪ Q) B
-| introA {Γ Q} {A B} (h1: proof Γ A)(h2: proof Q B): proof (Γ ∪ Q) (A ∧ᵢ B)
-| elimA1 {Γ} {A B} (h: proof Γ (A ∧ᵢ B)): proof Γ A
-| elimA2 {Γ} {A B} (h: proof Γ (A ∧ᵢ B)): proof Γ B
-| introO1 {Γ} {A B} (h: proof Γ A): proof Γ (A ∨ᵢ B)
-| introO2 {Γ} {A B} (h: proof Γ B): proof Γ (A ∨ᵢ B)
-| elimO {Γ Q} {A B C} (h1: proof Γ (A ∨ᵢ B))(h2: proof (Γ ∪ {A}) C)(h3: proof (Γ ∪ {B}) C): proof (Γ ∪ Q) C
-| introN {Γ Q}{A B}(h1: proof (Γ∪{A}) B)(h2: proof (Q∪{A}) (¬ᵢB)):proof (Γ ∪ Q) (¬ᵢA)
-| ine {Γ}{A B}(h1: proof Γ A)(h2: proof Γ  (¬ᵢA)):proof Γ B
-| introF {Γ}{A}(h1:proof Γ A)(x:ℤ )(h2: x ∉ (free_variables_set Γ)): proof Γ (∀ᵢ (formula_subsitution A (term.free_variable x) (term.free_variable (depth A))))
-| elimF {Γ}{A}(h:proof Γ (∀ᵢ A))(τ: term σ):proof Γ (formula_lift (-1) 0 (formula_subsitution f (term.free_variable 0) (term_lift 1 0 τ)))
-| introE {Γ}{A}(t: term σ)(h: proof Γ A ): proof Γ (∃ᵢ formula_subsitution A t (term.free_variable (depth A)))
-| elimE {Γ Q}{A}(h1: proof Γ (∃ᵢ A))(h2: proof (Q ∪ {A}) B): proof (Γ ∪ Q) B
-
-notation Γ "⊢" A => proof Γ A
+@[simp]
+theorem size_of_substit_eq_size {f : Formula σ} : ∀ m e, (f.subsitution m e).size = f.size := by
+  induction f <;> (intro m e;cases m) <;> first | rfl | simp; aesop
 
 
+def β_reduction (f : Formula σ) (t : Term σ) : Formula σ :=
+match f with
+| .atomic_formula r ts => (# r) ts
+| f1 ∧ᵢ f2 => f1 ∧ᵢ f2
+| f1 ∨ᵢ f2 => f1 ∨ᵢ f2
+| f1 →ᵢ f2 => f1 →ᵢ f2
+| ⊥  => ⊥
+| ¬ᵢ f => ¬ᵢ f
+| ∃ᵢ f => (f.subsitution (Term.free_variable 0) (Term.lift 1 0 t)).lift (-1) 0
+| ∀ᵢ f => (f.subsitution (Term.free_variable 0) (Term.lift 1 0 t)).lift (-1) 0
+
+def Term.free_variables {σ : Signature} : Term σ → ℤ  → Set ℤ
+| free_variable x => fun bound => if x>= bound then {x} else ∅
+| constant _ => fun _ => ∅
+
+def Formula.free_variables {σ : Signature} : Formula σ → ℤ  → Set ℤ
+  | atomic_formula r ts => fun bound=> ⋃ (i:Fin (σ.arity' r)), (ts i).free_variables bound
+  | ¬ᵢ f => fun bound => free_variables f bound
+  | ⊥  => fun _ => ∅
+  | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 =>
+    fun bound => (f1.free_variables bound) ∪ (f2.free_variables bound)
+  | ∃ᵢ f | ∀ᵢ f =>
+    fun bound => f.free_variables (bound+1)
+
+def Set.free_variables (Γ : Set (Formula σ)) : Set ℤ :=
+  ⋃ (f ∈ Γ), f.free_variables 0
 
 
+inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Type
+| ref        : (A ∈ Γ) → Proof Γ A
+| introI (A B)(Γ) : Proof (Γ∪{A}) B → Proof Γ (A →ᵢ B)
+| elimI : Proof Γ (A →ᵢ B) → Proof Q A → Proof (Γ ∪ Q) B
+| introA  : Proof Γ A → Proof Q B → Proof (Γ ∪ Q) (A ∧ᵢ B)
+| elimA1  : Proof Γ (A ∧ᵢ B) → Proof Γ A
+| elimA2  : Proof Γ (A ∧ᵢ B) → Proof Γ B
+| introO1 : Proof Γ A → Proof Γ (A ∨ᵢ B)
+| introO2 : Proof Γ B →  Proof Γ (A ∨ᵢ B)
+| elimO   : Proof Γ (A ∨ᵢ B) → Proof (Γ ∪ {A}) C → Proof (Γ ∪ {B}) C → Proof (Γ ∪ Q) C
+| introN  : Proof (Γ∪{A}) B → Proof (Q∪{A}) (¬ᵢB) → Proof (Γ ∪ Q) (¬ᵢA)
+| ine     : Proof Γ A → Proof Γ (¬ᵢA) → Proof Γ B
+| introF (x) : Proof Γ A → x ∉ (Γ.free_variables) → x ∉ (Γ.free_variables) →
+    Proof Γ (∀ᵢ (Formula.subsitution A (.free_variable x) (.free_variable A.depth)))
+| elimF  (τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ (Formula.lift (-1) 0 (Formula.subsitution f (.free_variable 0) (τ.lift 1 0)))
+| introE (t: Term σ) : Proof Γ A → Proof Γ (∃ᵢ A.subsitution t (.free_variable A.depth))
+| elimE : Proof Γ (∃ᵢ A) → Proof (Q ∪ {A}) B → Proof (Γ ∪ Q) B
 
--- instance{σ : Signature} (t : term σ) (y : Nat): Decidable (y ∈ free_variables_term t) := by match t with
--- | term.free_variable x => sorry
--- | term.function_application f ts => sorry
+notation Γ "⊢" A => Proof Γ A
+
+-- instance{σ : Signature} (t : Term σ) (y : Nat): Decidable (y ∈ free_variables_Term t) := by match t with
+-- | Term.free_variable x => sorry
+-- | Term.function_application f ts => sorry
 
 
--- def decidable_free_variables_term {σ : Signature} (t : term σ) (y : Nat) : Decidable (y ∈ free_variables_term t):=
+-- def decidable_free_variables_Term {σ : Signature} (t : Term σ) (y : Nat) : Decidable (y ∈ free_variables_Term t):=
 -- _
 -- by cases t with
 -- | free_variable x =>by constructor
@@ -195,55 +175,190 @@ notation Γ "⊢" A => proof Γ A
 
 
 
-
-
-def world := Type
-def obj := Type
-
-def restrict_formula {σ : Signature} : (Nat → obj ) → obj → term σ → obj :=
+def restrict_formula {σ : Signature} : (Nat → obj ) → obj → Term σ → obj :=
 fun beta => fun free_obj => fun t => by cases t with
 | free_variable _ => exact free_obj
-| Constant n => exact beta n
+| constant n => exact beta n
 
-structure model (σ : Signature) :=
-(W: Set world)
-(R: world → world → Prop)
-(D: world → Set obj ) -- Domain
-(α: (w:world) → σ.relation_symbols → (Fin (σ.arity' r) → (D w) ) → Prop)
-(β: (w:world) → Nat → (D w) ) --Nat is the index of Constant
-(refl : ∀ w ∈ W, R w w)
-(trans : ∀ w ∈ W, ∀ v ∈ W, ∀ u ∈ W, R w v → R v u → R w u)
-(mono : ∀ u ∈ W, ∀ v ∈ W, R u v → (D u) ⊂ (D v))
-(natural_transfer: (u v: world) → R u v → (D u) → (D v)) --transfer obj in Du to Dv
-(mono_R: ∀ u ∈ W, ∀ v ∈ W, ∀ r:σ.relation_symbols , ∀ args: (Fin (σ.arity' r) → (D u)), (h: R u v) → (α u r args) →  (α v r (fun q:Fin (σ.arity' r) => (natural_transfer u v h (args q)) )))
+-- def natural_transfer {σ : Signature} (M : model σ)(h1:u ∈ M.W)(h2:v∈ M.W)(h : M.R u v)(a: obj) :(a ∈ M.D u) → (a ∈ M.D v) :=
+--   fun hu => M.mono u h1 v h2 h hu
 
+-- variable (world : Type)
+-- variable (  R: Nat → Nat → Prop)
+-- variable (A : Type)
+-- variable (σ : Signature) ( D: Nat → Set A )  ( W: Set Nat) (u v: Nat) (r : σ.relation_symbols) (world : Type)
+-- (mono : (u v:Nat) → (h1: u ∈ W) → (h2: v ∈ W) →  R u v → ↑D u ⊆ ↑D v )
 
-def modify_value_function{σ : Signature} : (M:model σ) → (term σ → (M.D w)) → ℤ → (M.D w) → (term σ → (M.D w)) :=
-fun M=> fun v=> fun id => fun item => fun t=> by cases t with
-| free_variable z => if id = z then exact item else exact (v (term.free_variable z))
-| Constant z => exact v (term.Constant z)
+-- variable (args : (Fin (σ.arity' r) → D u))  (h1: u ∈ W) (h2: v ∈ W) (h: R u v) (x :  Fin (σ.arity' r))
 
-def formula_relation{σ : Signature}:formula σ → formula σ → Prop := fun f1 =>fun f2 => (depth f1) < (depth f2)
+-- --set_option pp.notation false
 
-def force_form {σ : Signature}: formula σ → Nat → (w:world) → (M:model σ) → (term σ → (M.D w)) → Prop
-| formula.atomic_formula r ts => fun n =>fun w => fun M=> fun v=> M.α w r (fun index=> (v (term_lift (-n) 0 (ts index))))
-| formula.bottom =>  fun _  => fun _ => fun _ => fun _ => false
-| formula.negation f =>fun n=> fun w => fun M=> fun v=> ∀(u:world), (h:M.R w u) → ¬ (force_form f n u M) (fun t=> M.natural_transfer w u h (v t))
-| formula.implication f1 f2 =>fun n=>  fun w => fun M=>  fun v=>∀ (u : world), (h:M.R w u) → (force_form f1 n w M v) → (force_form f2 n u M (fun t=> M.natural_transfer w u h (v t)))
-| formula.conjunction f1 f2 =>fun n=>  fun w => fun M=>  fun v=> (force_form f1 n w M v) ∧ (force_form f2 n w M v)
-| formula.disjunction f1 f2 =>fun n=>  fun w => fun M=>  fun v=> (force_form f1 n w M v) ∨ (force_form f2 n w M v)
-| formula.existential_quantification f =>fun n=>  fun w => fun M=>  fun v=> ∃ (t:M.D w) , force_form (formula_subsitution f (term.free_variable (depth f)) (term.free_variable (-n-1))) (n+1) w M (modify_value_function M v (-n-1) t)
-| formula.universal_quantification f =>fun n=>  fun w => fun M=>  fun v=> ∀ (t:M.D w) , force_form (formula_subsitution f (term.free_variable (depth f)) (term.free_variable (-n-1))) (n+1) w M (modify_value_function M v (-n-1) t)
--- | formula.equalities t1 t2 => fun w => sorry
-decreasing_by sorry  --fix in the future
+-- #check args x
+-- #check mono u v h1 h2 h (args x)
 
 
-def semantic_consequence {σ : Signature} (Γ : Set (formula σ)) (A : formula σ) : Prop :=
-∀ (M : model σ), ∀ (w : world), ∀ (v : term σ → (M.D w)), (∀ (f :formula σ ),f ∈ Γ →  force_form f 0 w M v) → force_form A 0 w M v
+structure model (σ : Signature) where
+  world : Type
+  W: Set world
+  A : Type --Domain
+  R: world → world → Prop
+  D: world → Set A  -- Domain
+  α: (w:world) → (r : σ.relation_symbols) → (Fin (σ.arity' r) → A) → Prop
+  β: (w:world) → Nat → Set A  --Nat is the index of Constant
+  refl : ∀ w ∈ W, R w w
+  trans : ∀ w ∈ W, ∀ v ∈ W, ∀ u ∈ W, R w v → R v u → R w u
+  obj_inc : (u v:world) → (h1: u ∈ W) → (h2: v ∈ W) →  R u v → D u ⊆ D v -- D u →  D v
+  mono: (u v:world) → (h1: u ∈ W) → (h2: v ∈ W)→ (r: σ.relation_symbols) →
+    (args : (Fin (σ.arity' r) → A)) → (h: R u v) → α u r args →  (α v r args)--(mono u v h1 h2 h) --(α v r (fun x => mono u v h1 h2 h (args x)))
+  R_closed : (u v:world) →  R u v → (u ∈ W)  → (v ∈ W)
+
+def codomain {σ : Signature}(M : model σ)(w : M.world)(args : ((Type u) → M.A)) : Prop := ∀ (x: Type u), (args x) ∈ (M.D w)
+
+def modify_value_function (M : model σ) (v : Term σ → M.A) (id : ℤ) (item : M.A) : Term σ → M.A
+| .free_variable z => if id = z then item else v (.free_variable z)
+| .constant z => v (.constant z)
+
+
+-- def Formula.relation (f1 f2: Formula σ) : Prop := f1.depth < f2.depth
+
+def Formula.force_form (n: Nat)(M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Term σ → M.A) : Formula σ  → Prop
+| atomic_formula r ts => M.α w r (fun index=> (v (Term.lift (-n) 0 (ts index))))
+| ⊥ => False
+| ¬ᵢ f => ∀ (u : M.world) , (h:M.R w u) → ¬ (f.force_form n M u (M.R_closed w u h hw) v)
+| f1 →ᵢ f2 => ∀ u, (h:M.R w u) → (f1.force_form n M u (M.R_closed w u h hw) v) → (f2.force_form n M u (M.R_closed w u h hw) v)
+| f1 ∧ᵢ f2 => (f1.force_form n M w hw v) ∧ (f2.force_form n M w hw v)
+| f1 ∨ᵢ f2 => (f1.force_form n M w hw v) ∨ (f2.force_form n M w hw v)
+| ∃ᵢ f => ∃ (t:M.A), (f.subsitution (.free_variable f.depth) (.free_variable (-n-1))).force_form  (n+1) M w hw (modify_value_function M v (-n-1) t)
+| ∀ᵢ f => ∀ (t:M.A), (f.subsitution (Term.free_variable (depth f)) (Term.free_variable (-n-1))).force_form (n+1) M w hw (modify_value_function M v (-n-1) t)
+-- | Formula.equalities t1 t2 => fun w => sorry
+termination_by _ n w M v f => f.size
+
+lemma strong_connected {σ : Signature}(M: model σ)(u v w:M.world)(h0: u ∈ M.W)(h1: M.R u v)(h2: M.R v w):M.R u w := by
+have h4: v ∈ M.W :=by apply M.R_closed u v h1 h0
+have h5: w ∈ M.W := by apply M.R_closed v w h2 h4
+apply M.trans u h0 v h4 w h5 h1 h2
+
+
+lemma Formula.mono_proof {σ : Signature}(M: model σ)(u v:M.world)(hr: M.R u v)(f: Formula σ)(hw: u ∈ M.W)(val)(h1: f.force_form n M u hw val ): f.force_form n M v (M.R_closed u v hr hw) val:= by
+  induction f with
+  | atomic_formula r ts => unfold force_form at h1
+                           unfold force_form
+                           exact(M.mono u v hw (M.R_closed u v hr hw)  r (fun index=>  val (Term.lift (-n) 0 (ts index))) hr h1)
+  | bottom => unfold force_form
+              unfold force_form at h1
+              assumption
+  | conjunction f1 f2 => rename_i h3 h4
+                         unfold force_form
+                         apply And.intro
+                         unfold force_form at h1
+                         apply h3 h1.left
+                         apply h4 h1.right
+  | disjunction f1 f2 => rename_i h3 h4
+                         unfold force_form
+                         unfold force_form at h1
+                         apply Or.elim h1
+                         intro h5
+                         apply Or.inl
+                         apply h3 h5
+                         intro h6
+                         apply Or.inr
+                         apply h4 h6
+  | negation f => rename_i h0
+                  unfold force_form
+                  unfold force_form at h1
+                  intro w2 hw2
+                  apply h1
+                  have h3: w2 ∈ M.W :=by apply M.R_closed v w2 hw2 (M.R_closed u v hr hw)
+                  have h4: v ∈ M.W :=by apply M.R_closed u v hr hw
+                  apply M.trans u hw v h4 w2 h3 hr hw2
+  | implication f1 f2 f3 f4 => unfold force_form
+                               unfold force_form at h1
+                               intro w2 hw2
+                               have h6: _ :=by apply strong_connected M u v w2 hw hr hw2
+                               apply h1 w2 h6
+  | existential_quantification f => sorry
+  | universal_quantification f => sorry
+
+  -- | existential_quantification f h0=> unfold force_form
+  --                                     unfold force_form at h1
+  --                                     match h1 with
+  --                                     | ⟨t,ht⟩ => exact ⟨t,(Formula.mono_proof M u v hr (subsitution f (Term.free_variable ↑(depth f)) (Term.free_variable (-↑n - 1))) hw (modify_value_function M val (-↑n - 1) t) ht)⟩
+--   | universal_quantification f h0=> unfold force_form
+--                                     unfold force_form at h1
+--                                     intro t
+--                                     have h2:_ :=h1 t
+--                                     apply Formula.mono_proof M u v hr  (subsitution f (Term.free_variable ↑(depth f)) (Term.free_variable (-↑n - 1)))  hw (modify_value_function M val (-↑n - 1) t) h2
+-- termination_by _ σ M u v h f hu val h1 => f.size
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                  -- apply M.R_closed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def semantic_consequence {σ : Signature} (Γ : Set (Formula σ)) (A : Formula σ) : Prop :=
+∀ (M : model σ), ∀ (w : M.world), ∀ (v : Term σ → M.A)(hw), (∀ (f :Formula σ ),f ∈ Γ → f.force_form 0 M w hw v) → A.force_form 0 M w hw v
 
 notation Γ "⊧" A => semantic_consequence Γ A
 
--- lemma Zcombine {σ : Signature}{P Q: Set (formula σ)}{A B: formula σ} : (P ⊧ A) →  (Q ⊧ B ) → ((P ∪ Q) ⊧ (A ∧ᵢ B) ):=by
+-- lemma Zcombine {σ : Signature}{P Q: Set (formula σ)}{A B: Formula σ} : (P ⊧ A) →  (Q ⊧ B ) → ((P ∪ Q) ⊧ (A ∧ᵢ B) ):=by
 -- intro h1 h2
 -- apply h1
 
@@ -251,17 +366,17 @@ notation Γ "⊧" A => semantic_consequence Γ A
 
 
 
-----proof of soundness
--- def soundness {σ: Signature}{Q: Set (formula σ )}{A : formula σ } : (Q ⊢ A) → (Q ⊧ A) := by
--- intro h
--- cases h with
--- | ref hp => intro M w h1;apply h1;assumption
--- | introI A B hx =>
---   intro M w h1
---   have q:∀ (v : world), M.R w v → force_form A v M → force_form B v M:=by
---     intro v raa c1
---     have ss:(Q ∪ {A})⊧B:= (soundness hx)
---     apply ss
---     intro xf tx
---     cases tx with
---     | inl h0 =>
+-- def soundness  (h : Q ⊢ A) : (Q ⊧ A) := by
+-- induction h with
+-- | ref hp D=>
+
+-- | introI A B Γ h1 h2 => intro M w v h3
+--                         unfold Formula.force_form
+--                         intro u h4 h5
+
+
+
+-- | introI A B Γ => intro M w v hf
+--                   have hz:(Γ ∪ {A})⊧B := by assumption
+--                   unfold Formula.force_form
+--                   intro u h1 h2

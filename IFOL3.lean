@@ -228,8 +228,8 @@ def Formula.force_form (n: Nat)(M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Te
 | f1 →ᵢ f2 => ∀ u, (h:M.R w u) → (f1.force_form n M u (M.R_closed w u h hw) v) → (f2.force_form n M u (M.R_closed w u h hw) v)
 | f1 ∧ᵢ f2 => (f1.force_form n M w hw v) ∧ (f2.force_form n M w hw v)
 | f1 ∨ᵢ f2 => (f1.force_form n M w hw v) ∨ (f2.force_form n M w hw v)
-| ∃ᵢ f => ∃ t, (f.subsitution (.free_variable f.depth) (.free_variable (-n-1))).force_form  (n+1) M w hw (modify_value_function M v (-n-1) t)
-| ∀ᵢ f => ∀ (t:M.D w), (f.subsitution (Term.free_variable (depth f)) (Term.free_variable (-n-1))).force_form (n+1) M w hw (modify_value_function M v (-n-1) t)
+| ∃ᵢ f => ∃ (t:M.A), (f.subsitution (.free_variable f.depth) (.free_variable (-n-1))).force_form  (n+1) M w hw (modify_value_function M v (-n-1) t)
+| ∀ᵢ f => ∀ (t:M.A), (f.subsitution (Term.free_variable (depth f)) (Term.free_variable (-n-1))).force_form (n+1) M w hw (modify_value_function M v (-n-1) t)
 -- | Formula.equalities t1 t2 => fun w => sorry
 termination_by _ n w M v f => f.size
 
@@ -276,9 +276,27 @@ lemma Formula.mono_proof {σ : Signature}(M: model σ)(u v:M.world)(hr: M.R u v)
                                intro w2 hw2
                                have h6: _ :=by apply strong_connected M u v w2 hw hr hw2
                                apply h1 w2 h6
-  | existential_quantification f h0=> unfold force_form
-                                      unfold force_form at h1
-                                      unfold subsitution at h1
+  | existential_quantification f => sorry
+  | universal_quantification f => sorry
+
+  -- | existential_quantification f h0=> unfold force_form
+  --                                     unfold force_form at h1
+  --                                     match h1 with
+  --                                     | ⟨t,ht⟩ => exact ⟨t,(Formula.mono_proof M u v hr (subsitution f (Term.free_variable ↑(depth f)) (Term.free_variable (-↑n - 1))) hw (modify_value_function M val (-↑n - 1) t) ht)⟩
+--   | universal_quantification f h0=> unfold force_form
+--                                     unfold force_form at h1
+--                                     intro t
+--                                     have h2:_ :=h1 t
+--                                     apply Formula.mono_proof M u v hr  (subsitution f (Term.free_variable ↑(depth f)) (Term.free_variable (-↑n - 1)))  hw (modify_value_function M val (-↑n - 1) t) h2
+-- termination_by _ σ M u v h f hu val h1 => f.size
+
+
+
+
+
+
+
+
 
 
 
@@ -350,9 +368,8 @@ notation Γ "⊧" A => semantic_consequence Γ A
 
 -- def soundness  (h : Q ⊢ A) : (Q ⊧ A) := by
 -- induction h with
--- | ref hp => intro M w h1 h2
---             apply h2
---             assumption
+-- | ref hp D=>
+
 -- | introI A B Γ h1 h2 => intro M w v h3
 --                         unfold Formula.force_form
 --                         intro u h4 h5
