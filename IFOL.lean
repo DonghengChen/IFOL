@@ -7,15 +7,21 @@ open Set
 
 
 structure Signature where
-  function_symbols : Type
+  -- function_symbols : Type
   relation_symbols : Type
-  arity : function_symbols → Nat
+  -- arity : function_symbols → Nat
   arity' : relation_symbols → Nat
 
+inductive free_variable : Type
+| free_variable : ℤ → free_variable
+
+inductive Constant : Type
+| Constant : Nat → Constant
+
 inductive Term (σ : Signature): Type
-| free_variable : ℤ  → Term σ
+| free : free_variable  → Term σ
 -- | function_application (f : σ.function_symbols) : (Fin (σ.arity f) → Term σ ) → Term σ
-| constant : Nat → Term σ --constant is key word in Lean 4
+| const : Constant → Term σ --constant is key word in Lean 4
 -- | relation_application (r : σ.relation_symbols) : (Fin (σ.arity' r) → Term σ )
 
 inductive Formula (σ : Signature) : Type
@@ -29,8 +35,8 @@ inductive Formula (σ : Signature) : Type
   | negation : Formula σ → Formula σ
 
 def Term_eql : Term σ → Term σ → Prop
-  | .free_variable n, .free_variable m => n = m
-  | .constant n, .constant m => n = m
+  | .free n, .free m => n = m
+  | .const n, .const m => n = m
   | _,_ => False
 
 
@@ -45,13 +51,14 @@ prefix:20 "¬ᵢ" => Formula.negation
 
 
 def Term.lift (i : ℤ) (c : Nat) : Term σ → Term σ --i c n → n
-  | .free_variable n =>
-    if n < c then
-      free_variable n
+  | .free n =>by  cases n with
+    | free_variable n'=> if n' < c then
+    exact free (free_variable.free_variable n')
     else
-      free_variable (n+i)
+      exact free (free_variable.free_variable (n'+i))
+
   -- | function_application f ts => exact Term.function_application f (fun q:Fin (σ.arity f)=> Term_lift i c (ts q))
-  | .constant n => constant n
+  | .const n => const n
 
 def Formula.lift (i : ℤ) (c : Nat) : Formula σ → Formula σ
   | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).lift i c)
@@ -66,17 +73,21 @@ def Formula.lift (i : ℤ) (c : Nat) : Formula σ → Formula σ
 
 def Term.subsitution (src m e: Term σ) : Term σ :=
   match src,m with
-  | free_variable n, free_variable n' =>  if n=n' then e else free_variable n
-  | constant n, constant n' => if n=n' then e else free_variable n
-  | free_variable n, constant _ =>  free_variable n
-  | constant n, free_variable _ => constant n
+  | .free n, .free n' =>
+    match n,n' with
+    | .free_variable n, .free_variable n' => if n=n' then e else src
+  | const n, const n' =>
+    match n,n' with
+    | .Constant n, .Constant n' => if n=n' then e else src
+  | free n, const _ =>  free n
+  | const n, free _ => const n
 
 
 def Formula.depth : Formula σ → Nat
-  | atomic_formula .. | ⊥ => 0
   | ¬ᵢ f => depth f
   | ∃ᵢ f | ∀ᵢ f => (depth f) + 1
   | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => max (depth f1) (depth f2)
+  | _ => 0
 
 @[simp]
 def Formula.size : Formula σ → Nat
@@ -86,27 +97,32 @@ def Formula.size : Formula σ → Nat
 
 def Formula.subsitution (f : Formula σ) (m e: Term σ) : Formula σ :=
   match m with
-  | .constant t => match f with
-    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution  (.constant t) e)
-    | f1 ∧ᵢ f2 => (f1.subsitution (.constant t) e) ∧ᵢ (f2.subsitution (.constant t) e)
-    | f1 ∨ᵢ f2 => (f1.subsitution (.constant t) e) ∨ᵢ (f2.subsitution (.constant t) e)
-    | f1 →ᵢ f2 => (f1.subsitution (.constant t) e) →ᵢ (f2.subsitution (.constant t) e)
+  | .const t => match f with
+    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution  (.const t) e)
+    | f1 ∧ᵢ f2 => (f1.subsitution (.const t) e) ∧ᵢ (f2.subsitution (.const t) e)
+    | f1 ∨ᵢ f2 => (f1.subsitution (.const t) e) ∨ᵢ (f2.subsitution (.const t) e)
+    | f1 →ᵢ f2 => (f1.subsitution (.const t) e) →ᵢ (f2.subsitution (.const t) e)
     | ⊥  => ⊥
-    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.constant t) e)
-    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.constant t) e)
-    | ∀ᵢ f => ∀ᵢ (f.subsitution (.constant t) e)
-  | .free_variable t => match f with
-    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution (.free_variable t) e)
+    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.const t) e)
+    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.const t) e)
+    | ∀ᵢ f => ∀ᵢ (f.subsitution (.const t) e)
+  | .free t => match f with
+    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution (.free t) e)
     | ⊥  => ⊥
-    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.free_variable t) e)
-    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.free_variable t) e)
-    | ∀ᵢ f => ∀ᵢ (f.subsitution (.free_variable t) e)
+    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.free t) e)
+    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.free t) e)
+    | ∀ᵢ f => ∀ᵢ (f.subsitution (.free t) e)
     | f1 ∧ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                  (f1.subsitution (.free_variable (t+(depth f1) - top)) e) ∧ᵢ (f2.subsitution (.free_variable  (t+(depth f2) - top)) e)
+                  match t with
+                  | .free_variable a => (f1.subsitution (.free (free_variable.free_variable (a + (f1.depth) - top))) e) ∧ᵢ (f2.subsitution (.free  (free_variable.free_variable (a + (depth f2) - top))) e)
     | f1 ∨ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                  (f1.subsitution (.free_variable (t+(depth f1) - top)) e) ∨ᵢ (f2.subsitution (.free_variable  (t+(depth f2) - top)) e)
+                  match t with
+                  | .free_variable t =>
+                  (f1.subsitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e) ∨ᵢ (f2.subsitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
     | f1 →ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                  (f1.subsitution (.free_variable (t+(depth f1) - top)) e)  →ᵢ (f2.subsitution (.free_variable  (t+(depth f2) - top)) e)
+                  match t with
+                  | .free_variable t =>
+                  (f1.subsitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e)  →ᵢ (f2.subsitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
 
 @[simp]
 theorem size_of_substit_eq_size {f : Formula σ} : ∀ m e, (f.subsitution m e).size = f.size := by
@@ -121,12 +137,13 @@ match f with
 | f1 →ᵢ f2 => f1 →ᵢ f2
 | ⊥  => ⊥
 | ¬ᵢ f => ¬ᵢ f
-| ∃ᵢ f => (f.subsitution (Term.free_variable 0) (Term.lift 1 0 t)).lift (-1) 0
-| ∀ᵢ f => (f.subsitution (Term.free_variable 0) (Term.lift 1 0 t)).lift (-1) 0
+| ∃ᵢ f => (f.subsitution (Term.free (free_variable.free_variable 0)) (Term.lift 1 0 t)).lift (-1) 0
+| ∀ᵢ f => (f.subsitution (Term.free (free_variable.free_variable 0)) (Term.lift 1 0 t)).lift (-1) 0
 
 def Term.free_variables {σ : Signature} : Term σ → ℤ  → Set ℤ
-| free_variable x => fun bound => if x>= bound then {x} else ∅
-| constant _ => fun _ => ∅
+| free x => fun bound => match x with
+  | .free_variable z =>if z>= bound then {z} else ∅
+| const _ => fun _ => ∅
 
 def Formula.free_variables {σ : Signature} : Formula σ → ℤ  → Set ℤ
   | atomic_formula r ts => fun bound=> ⋃ (i:Fin (σ.arity' r)), (ts i).free_variables bound
@@ -153,11 +170,10 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Type
 | elimO   : Proof Γ (A ∨ᵢ B) → Proof (Γ ∪ {A}) C → Proof (Γ ∪ {B}) C → Proof (Γ ∪ Q) C
 | introN  : Proof (Γ∪{A}) B → Proof (Q∪{A}) (¬ᵢB) → Proof (Γ ∪ Q) (¬ᵢA)
 | ine     : Proof Γ A → Proof Γ (¬ᵢA) → Proof Γ B
-| introF (x) : Proof Γ A → x ∉ (Γ.free_variables) → x ∉ (Γ.free_variables) →
-    Proof Γ (∀ᵢ (Formula.subsitution A (.free_variable x) (.free_variable A.depth)))
-| elimF  (τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ (Formula.lift (-1) 0 (Formula.subsitution f (.free_variable 0) (τ.lift 1 0)))
-| introE (t: Term σ) : Proof Γ A → Proof Γ (∃ᵢ A.subsitution t (.free_variable A.depth))
-| elimE : Proof Γ (∃ᵢ A) → Proof (Q ∪ {A}) B → Proof (Γ ∪ Q) B
+| introF (x) : Proof Γ A → x ∉ (Γ.free_variables) → Proof Γ (∀ᵢ (Formula.subsitution A (.free (free_variable.free_variable x)) (.free (free_variable.free_variable A.depth))))
+| elimF  (τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ (Formula.lift (-1) 0 (Formula.subsitution f (.free (free_variable.free_variable 0)) (τ.lift 1 0)))
+| introE (t: Term σ) : Proof Γ A → Proof Γ (∃ᵢ A.subsitution t (.free (free_variable.free_variable A.depth)))
+| elimE (τ: Term σ): Proof Γ (∃ᵢ A) → Proof (Q ∪ {A.subsitution (Term.free (free_variable.free_variable (A.depth))) τ }) B →((τ.free_variables 0) ∩ (A.free_variables (A.depth))=∅ ) → Proof (Γ ∪ Q) B --fix lift
 
 notation Γ "⊢" A => Proof Γ A
 
@@ -175,10 +191,10 @@ notation Γ "⊢" A => Proof Γ A
 
 
 
-def restrict_formula {σ : Signature} : (Nat → obj ) → obj → Term σ → obj :=
-fun beta => fun free_obj => fun t => by cases t with
-| free_variable _ => exact free_obj
-| constant n => exact beta n
+-- def restrict_formula {σ : Signature} : (Nat → obj ) → obj → Term σ → obj :=
+-- fun beta => fun free_obj => fun t => by cases t with
+-- | free_variable _ => exact free_obj
+-- | constant n => exact beta n
 
 -- def natural_transfer {σ : Signature} (M : model σ)(h1:u ∈ M.W)(h2:v∈ M.W)(h : M.R u v)(a: obj) :(a ∈ M.D u) → (a ∈ M.D v) :=
 --   fun hu => M.mono u h1 v h2 h hu
@@ -204,32 +220,33 @@ structure model (σ : Signature) where
   R: world → world → Prop
   D: world → Set A  -- Domain
   α: (w:world) → (r : σ.relation_symbols) → (Fin (σ.arity' r) → A) → Prop
-  β: (w:world) → Nat → Set A  --Nat is the index of Constant
+  β:  Nat → Set A  --Nat is the index of Constant
   refl : ∀ w ∈ W, R w w
   trans : ∀ w ∈ W, ∀ v ∈ W, ∀ u ∈ W, R w v → R v u → R w u
   obj_inc : (u v:world) → (h1: u ∈ W) → (h2: v ∈ W) →  R u v → D u ⊆ D v -- D u →  D v
-  mono: (u v:world) → (h1: u ∈ W) → (h2: v ∈ W)→ (r: σ.relation_symbols) →
+  mono: (u v:world) → (h1: u ∈ W) → (h2: v ∈ W) → (r: σ.relation_symbols) →
     (args : (Fin (σ.arity' r) → A)) → (h: R u v) → α u r args →  (α v r args)--(mono u v h1 h2 h) --(α v r (fun x => mono u v h1 h2 h (args x)))
   R_closed : (u v:world) →  R u v → (u ∈ W)  → (v ∈ W)
 
 def codomain {σ : Signature}(M : model σ)(w : M.world)(args : ((Type u) → M.A)) : Prop := ∀ (x: Type u), (args x) ∈ (M.D w)
 
-def modify_value_function (M : model σ) (v : Term σ → M.A) (id : ℤ) (item : M.A) : Term σ → M.A
-| .free_variable z => if id = z then item else v (.free_variable z)
-| .constant z => v (.constant z)
+def modify_value_function (M : model σ) (v : Term σ → M.A) (item : M.A) : Term σ → M.A --head insert
+| .free z => match z with
+  | .free_variable n => if n<=1 then item else v (.free (.free_variable (n+1)))
+| .const z => v (.const z)
 
 
 -- def Formula.relation (f1 f2: Formula σ) : Prop := f1.depth < f2.depth
 
-def Formula.force_form (n: Nat)(M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Term σ → M.A) : Formula σ  → Prop
-| atomic_formula r ts => M.α w r (fun index=> (v (Term.lift (-n) 0 (ts index))))
+def Formula.force_form (M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Term σ → M.A) : Formula σ  → Prop
+| atomic_formula r ts => M.α w r (fun index=> v (ts index))
 | ⊥ => False
-| ¬ᵢ f => ∀ (u : M.world) , (h:M.R w u) → ¬ (f.force_form n M u (M.R_closed w u h hw) v)
-| f1 →ᵢ f2 => ∀ u, (h:M.R w u) → (f1.force_form n M u (M.R_closed w u h hw) v) → (f2.force_form n M u (M.R_closed w u h hw) v)
-| f1 ∧ᵢ f2 => (f1.force_form n M w hw v) ∧ (f2.force_form n M w hw v)
-| f1 ∨ᵢ f2 => (f1.force_form n M w hw v) ∨ (f2.force_form n M w hw v)
-| ∃ᵢ f => ∃ (t:M.A), (f.subsitution (.free_variable f.depth) (.free_variable (-n-1))).force_form  (n+1) M w hw (modify_value_function M v (-n-1) t)
-| ∀ᵢ f => ∀ (t:M.A), (f.subsitution (Term.free_variable (depth f)) (Term.free_variable (-n-1))).force_form (n+1) M w hw (modify_value_function M v (-n-1) t)
+| ¬ᵢ f => ∀ (u : M.world) , (h:M.R w u) → ¬ (f.force_form  M u (M.R_closed w u h hw) v)
+| f1 →ᵢ f2 => ∀ u, (h:M.R w u) → (f1.force_form  M u (M.R_closed w u h hw) v) → (f2.force_form  M u (M.R_closed w u h hw) v)
+| f1 ∧ᵢ f2 => (f1.force_form  M w hw v) ∧ (f2.force_form  M w hw v)
+| f1 ∨ᵢ f2 => (f1.force_form  M w hw v) ∨ (f2.force_form  M w hw v)
+| ∃ᵢ f => ∃ (t:M.A), f.force_form M w hw (modify_value_function M v t)
+| ∀ᵢ f => ∀ (t:M.A), f.force_form M w hw (modify_value_function M v t)
 -- | Formula.equalities t1 t2 => fun w => sorry
 termination_by _ n w M v f => f.size
 
@@ -239,11 +256,11 @@ have h5: w ∈ M.W := by apply M.R_closed v w h2 h4
 apply M.trans u h0 v h4 w h5 h1 h2
 
 
-lemma Formula.mono_proof {σ : Signature}(M: model σ)(u v:M.world)(hr: M.R u v)(f: Formula σ)(hw: u ∈ M.W)(val)(h1: f.force_form n M u hw val ): f.force_form n M v (M.R_closed u v hr hw) val:= by
+lemma Formula.mono_proof {σ : Signature}(M: model σ)(u v:M.world)(hr: M.R u v)(f: Formula σ)(hw: u ∈ M.W)(val)(h1: f.force_form M u hw val ): f.force_form M v (M.R_closed u v hr hw) val:= by
   induction f with
   | atomic_formula r ts => unfold force_form at h1
                            unfold force_form
-                           exact(M.mono u v hw (M.R_closed u v hr hw)  r (fun index=>  val (Term.lift (-n) 0 (ts index))) hr h1)
+                           apply M.mono u v hw (M.R_closed u v hr hw) r (fun q => val (ts q)) hr h1
   | bottom => unfold force_form
               unfold force_form at h1
               assumption
