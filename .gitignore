@@ -2,3 +2,6 @@
 /lake-packages/*
 /OLD/*
 /.cache/*
+IFOL3.lean
+WJL.lean
+test.lean

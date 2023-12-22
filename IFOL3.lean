@@ -276,8 +276,16 @@ lemma Formula.mono_proof {σ : Signature}(M: model σ)(u v:M.world)(hr: M.R u v)
                                intro w2 hw2
                                have h6: _ :=by apply strong_connected M u v w2 hw hr hw2
                                apply h1 w2 h6
-  | existential_quantification f => sorry
-  | universal_quantification f => sorry
+  | existential_quantification f hv=>
+                                unfold force_form
+                                unfold force_form at h1
+                                match h1 with
+                                | ⟨t,ht⟩ =>  exact ⟨t,hv (modify_value_function M val t) ht⟩
+  | universal_quantification f hv=>
+                                unfold force_form
+                                unfold force_form at h1
+                                intro t
+                                exact hv (modify_value_function M val t) (h1 t)
 
   -- | existential_quantification f h0=> unfold force_form
   --                                     unfold force_form at h1
