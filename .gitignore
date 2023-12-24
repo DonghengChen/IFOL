@@ -2,6 +2,7 @@
 /lake-packages/*
 /OLD/*
 /.cache/*
+/fol/*
 IFOL3.lean
 WJL.lean
 test.lean

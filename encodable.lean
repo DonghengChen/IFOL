@@ -66,12 +66,12 @@ private def f (n : Nat) : Wfin' ar (n + 1) → Σ a : α, Fin (ar a) → Wfin' a
 private def finv (n : Nat) : (Σ a : α, Fin (ar a) → Wfin' ar n) → Wfin' ar (n + 1)
 | ⟨a, f⟩ =>
   let f' := λ i : Fin (ar a)=>(f i).val
-  have h : Wfin.depth ⟨a, f'⟩ ≤ n + 1:=Nat.add_le_add_right (Finset.sup_le (λ b h=> (f b).2)) 1
+  have h : Wfin.depth ⟨a, f'⟩ ≤ n + 1:=Nat.add_le_add_right (Finset.sup_le (λ b _=> (f b).2)) 1
   ⟨⟨a, f'⟩, h⟩
 
 variable [Encodable α]
 
-private def encodable_succ (n : Nat) (h : Encodable (Wfin' ar n)) : Encodable (Wfin' ar (n + 1)) :=by
+private def encodable_succ (n : Nat) (_ : Encodable (Wfin' ar n)) : Encodable (Wfin' ar (n + 1)) :=by
 apply Encodable.ofLeftInverse (f n) (finv n)
 intro t
 cases t with
@@ -113,5 +113,12 @@ def mk_fn2 (s t : α) : Fin 2 → α
 | ⟨1, _⟩   => t
 | ⟨n+2, h⟩ => by simp at h
 
+def mk_fnk (n : Nat) (f : Fin n → α)(A:α) : Fin (n+1) → α :=by
+  intro i
+  induction i with
+  | mk a b => cases a with
+            | zero => exact A
+            | succ a => exact f ⟨a, Nat.lt_of_succ_lt_succ b⟩
+
+
 attribute [simp] mk_fn0 mk_fn1 mk_fn2
-end fin

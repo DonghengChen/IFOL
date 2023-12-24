@@ -4,7 +4,8 @@ import Mathlib.Data.Set.Basic
 import Mathlib.Tactic
 open Set
 
-
+inductive relation_symbols : Type
+| relation_symbols : Nat → relation_symbols
 
 structure Signature where
   -- function_symbols : Type
