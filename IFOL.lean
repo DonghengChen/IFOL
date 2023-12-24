@@ -348,7 +348,8 @@ match h with
                                 False.elim (hcs u (M.refl u hw) hbs)
 
 
-| Proof.introF A Γ x h1 h2 => fun M u v hw hf => fun t ht => (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h2 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) t ht
-| Proof.elimF A Γ τ h1 => fun M u v hw hf => (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) τ
-| Proof.introE A Γ t h1 => fun M u v hw hf => Exists.intro (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq)))
-| Proof.elimE A B Γ τ h1 h2 h3 => fun M u v hw hf => Exists.elim (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (fun t ht => (h2 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) (h3 M u v hw ht))
+| Proof.introF B Γ x h1 h2 => fun M u v hw hf => fun ma =>_
+
+-- | Proof.elimF A Γ τ h1 => fun M u v hw hf => (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) τ
+-- | Proof.introE A Γ t h1 => fun M u v hw hf => Exists.intro (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq)))
+-- | Proof.elimE A B Γ τ h1 h2 h3 => fun M u v hw hf => Exists.elim (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (fun t ht => (h2 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) (h3 M u v hw ht))
