@@ -152,7 +152,7 @@ inductive Formula (σ : Signature) : Type
 
 
 
-private def construct:= ℤ ⊕ ℕ ⊕ Fin 10 ⊕ ℕ
+private def construct:= ℤ ⊕ ℕ ⊕ Fin 11 ⊕ ℕ
 
 
 local notation "cfree" v => Sum.inl v
@@ -168,12 +168,12 @@ local notation "cneg"    => Sum.inr (Sum.inr (Sum.inl 8))
 local notation "cpar"    =>Sum.inr (Sum.inr (Sum.inl 9))
 local notation "cend"    =>Sum.inr (Sum.inr (Sum.inl 0))
 local notation "crel" n   =>Sum.inr (Sum.inr (Sum.inr n))
-
+local notation "czero"  => Sum.inr (Sum.inr (Sum.inl 10))
 
 @[reducible]
 private def arity: construct → Nat
-| (cfree v) => 0
-| (cconst v)  => 0
+| (cfree _) => 0
+| (cconst _)  => 0
 | cbot      => 0
 | cimpl     => 2
 | cand      => 2
@@ -183,10 +183,11 @@ private def arity: construct → Nat
 | cneg      => 1
 | catom     => 2
 | cpar      =>2
-| (crel n)  =>0
-| cend =>0
+| (crel _)  =>0
+| cend =>1
+| czero =>0
 
-#check Formula
+
 
 
 
@@ -205,20 +206,20 @@ fun r => by
 cases r with
 | relation n => exact ⟨crel n,mk_fn0⟩
 
-@[simp]
-def mk_fnm {σ : Signature}(m:Nat)(ts: Fin m → Form.Term σ): Fin m → Wfin arity := fun x=> g (ts x)
+
 
 
 
 
 
 -- Restricting f to Fin (n - 1)
+
 theorem foo (x :Fin (n-1)): x.val<n:=by
 apply Nat.lt_of_lt_of_le x.2
 norm_num
 
 
-#check Fin.ofNat'
+
 
 
 
@@ -230,17 +231,22 @@ def p00:Nat.le 1 1:=by simp
 def p01:Nat.le 1 2:=by simp
 def p02:Nat.le 2 2:=by simp
 
-def restrict (σ : Signature)(n:Nat)(f:Fin n → Form.Term σ)(x : Fin (n - 1)) : Form.Term σ  :=
-f ⟨x.val, (foo x)⟩
 
-#check restrict
 
-def gpar{σ : Signature} (n:Nat): (Fin n → Form.Term σ) → Wfin arity:= fun ts =>
+
+def nmpm : ∀ (m : Nat), ¬m = 0 → m > 0 :=
+  fun m =>
+  match m with
+  | 0 => fun h => absurd rfl h
+  | m + 1 => fun _ => Nat.zero_lt_succ m
+
+
+def gpar{σ : Signature} (n:Nat): (Fin m → Form.Term σ) → Wfin arity:= fun ts =>
+if hm:m=0 then ⟨czero,mk_fn0⟩ else
 if hn:n>0 then
-let f2 : Fin (n-1) → Form.Term σ := fun x =>restrict σ n ts x
-⟨cpar, mk_fn2 (gpar (n-1) f2) (g (ts (Fin.ofNat' n hn)))  ⟩
+⟨cpar, mk_fn2 (gpar (n-1) ts) (g (ts (Fin.ofNat' n (nmpm m hm))))  ⟩
 else
-⟨cend,mk_fn0⟩
+⟨cpar ,mk_fn2 (g (ts (Fin.ofNat' n (nmpm m hm)))) (g (ts (Fin.ofNat' n (nmpm m hm))))⟩
 
 def f {σ : Signature}:  Form.Formula σ → Wfin arity:=
   fun form =>by
@@ -254,7 +260,7 @@ def f {σ : Signature}:  Form.Formula σ → Wfin arity:=
     | existential_quantification f1 => exact ⟨cexists,mk_fn1 (f f1)⟩
     | universal_quantification f1 => exact ⟨cforall,mk_fn1 (f f1)⟩
 
-#check Fin.ofNat'
+
 
 
 private def decode0(σ : Signature) :Wfin arity → Term σ
@@ -262,21 +268,13 @@ private def decode0(σ : Signature) :Wfin arity → Term σ
 | ⟨cconst c, _⟩ => Term.const (Constant.Constant c)
 | _ => Term.free (free_variable.free_variable 0)
 
-private def concat{σ : Signature}(n:Nat)(f:Fin n → Term σ)(t:Form.Term σ):Fin (n+1) → Form.Term σ:=
-fun x=> have h0:  0<=x.val := Nat.zero_le x.val
-if hq:n=0 then t else
-if h:x.val<n then
-have h1: n>0:= lt_of_le_of_lt h0 h
-f (Fin.ofNat' n h1) else t
 
-def rephrase(σ : Signature)(n:Nat)(f:Fin (n-1+1) → Term σ):Fin (n) → Term σ:=
-fun x=> f x
 
 def empty(n:Nat):Fin n → Term σ:=fun _ => Term.free (free_variable.free_variable 0)
 
 private def decode1(σ : Signature):Wfin arity → (Fin n → Term σ)
-| ⟨cpar, fn⟩ => rephrase σ n (concat (n-1) (decode1 σ (fn ⟨0, by reduce;exact p01⟩)) (decode0 σ (fn ⟨1, by reduce; exact p02⟩)))
-| _ => empty n
+| ⟨cpar, fn⟩ => fun x=> if x.val = n-1 then (decode0 σ (fn ⟨1, by reduce; exact p02⟩)) else decode1 σ (fn ⟨0, by reduce;exact p01⟩) x
+| _ => fun _=> Term.free (free_variable.free_variable 0)--empty
 
 private def decode2:Wfin arity → relation_symbols
 | ⟨crel n, _⟩ => relation_symbols.relation n
@@ -284,7 +282,7 @@ private def decode2:Wfin arity → relation_symbols
 
 private def finv {σ : Signature}: Wfin arity →  Form.Formula σ
 | ⟨catom, fn⟩ => Form.Formula.atomic_formula (decode2 (fn ⟨0, by reduce;exact p01⟩)) (decode1 σ (fn ⟨1, by reduce;exact p02⟩))
-| ⟨cbot, fn⟩    => Form.Formula.bottom
+| ⟨cbot, _⟩    => Form.Formula.bottom
 | ⟨cimpl, fn⟩   => Form.Formula.implication (finv (fn ⟨0, by reduce;exact p01⟩)) (finv (fn ⟨1, by reduce;exact p02⟩))
 | ⟨cand, fn⟩   => Form.Formula.conjunction (finv (fn ⟨0, by reduce;exact p01⟩)) (finv (fn ⟨1, by reduce;exact p02⟩))
 | ⟨cor, fn⟩   => Form.Formula.disjunction (finv (fn ⟨0, by reduce;exact p01⟩)) (finv (fn ⟨1, by reduce;exact p02⟩))
@@ -294,7 +292,92 @@ private def finv {σ : Signature}: Wfin arity →  Form.Formula σ
 | _ => Form.Formula.bottom
 
 
-instance [encodable ℕ] : encodable form :=
-  haveI : encodable (constructors σ) :=_
-    by { unfold constructors, apply_instance },
-  exact encodable.of_left_inverse f finv (by { intro p, induction p; simp [f, finv, *] })
+theorem iso0{σ : Signature}: ∀ t:Form.Term σ , decode0 σ (g t) = t:= by
+intro term
+cases term with
+| free n=> unfold Form.decode0
+           unfold g
+           simp
+| const n=> unfold Form.decode0
+            unfold g
+            simp
+
+theorem iso1{σ : Signature}{n:Nat}: ∀ ts:(Fin n → Form.Term σ), decode1 σ (gpar (n-1) ts)=ts := by
+
+
+cases n
+intro ts
+funext X
+absurd X.2
+simp
+unfold Form.decode1
+rename_i n
+simp
+
+
+rename_i he hs
+
+cases em (n=0) with
+| inl h1=>
+  rw [h1]
+  have h0:Nat.succ 0=1:=by simp
+  rw [h0]
+  intro ts
+  funext x
+  unfold gpar
+  have hx:x.val=0:=by simp
+  simp
+  
+
+
+
+
+
+| inr h1=>
+  have h2:n>0:=Nat.pos_of_ne_zero h1
+  intro ts
+  funext x
+  cases em (x.val=n) with
+  | inl h =>
+    unfold gpar
+
+  | inr h => simp [h,hs]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+theorem iso {σ : Signature}: ∀ k : Form.Formula σ, finv (f k) = k := by
+  intro g
+  sorry
+
+
+
+
+
+-- instance [encodable ℕ] : encodable form :=
+--   haveI : encodable (constructors σ) :=_
+--     by { unfold constructors, apply_instance },
+--   exact encodable.of_left_inverse f finv (by { intro p, induction p; simp [f, finv, *] })
+instance [Encodable ℕ] {σ : Signature}: Encodable (Form.Formula σ) := by
+  have h: Encodable (construct) := by unfold construct; sorry
+  apply Encodable.ofLeftInverse (f) (finv) iso

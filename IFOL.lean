@@ -41,6 +41,8 @@ def Term_eql : Term σ → Term σ → Prop
   | _,_ => False
 
 
+
+
 notation "⊥" => Formula.bottom
 infixr:50 "→ᵢ" => Formula.implication
 infixr:40 "∧ᵢ" => Formula.conjunction
