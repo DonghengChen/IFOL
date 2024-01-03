@@ -2,6 +2,8 @@ import Mathlib.Init.Set
 import Mathlib.SetTheory.Cardinal.Basic
 import Mathlib.Data.Set.Basic
 import Mathlib.Tactic
+
+namespace IFOL
 open Set
 
 inductive relation_symbols : Type
@@ -173,7 +175,7 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Type
 | elimO   (A B C)(Γ Q G): Proof Γ (A ∨ᵢ B) → Proof (G ∪ {A}) C → Proof (Q ∪ {B}) C → Proof (Γ ∪ Q ∪ G) C
 | introN  (A B)(Γ Q): Proof (Γ∪{A}) B → Proof (Q∪{A}) (¬ᵢB) → Proof (Γ ∪ Q) (¬ᵢA)
 | ine     (A B)(Γ): Proof Γ A → Proof Γ (¬ᵢA) → Proof Γ B
-| introF (A)(Γ)(x) : Proof Γ A → x ∉ (Γ.free_variables) → Proof Γ (∀ᵢ (Formula.subsitution A (.free (free_variable.free_variable x)) (.free (free_variable.free_variable A.depth))))
+| introF (A)(Γ)(x) : Proof Γ A → x ∉ (Set.free_variables Γ) → Proof Γ (∀ᵢ (Formula.subsitution A (.free (IFOL.free_variable.free_variable x)) (.free (IFOL.free_variable.free_variable A.depth))))
 | elimF  (A)(Γ)(τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ (Formula.lift (-1) 0 (Formula.subsitution f (.free (free_variable.free_variable 0)) (τ.lift 1 0)))
 | introE (A)(Γ)(t: Term σ) : Proof Γ A → Proof Γ (∃ᵢ A.subsitution t (.free (free_variable.free_variable A.depth)))
 | elimE (A B)(Γ)(τ: Term σ): Proof Γ (∃ᵢ A) → Proof (Q ∪ {A.subsitution (Term.free (free_variable.free_variable (A.depth))) τ }) B →((τ.free_variables 0) ∩ (A.free_variables (A.depth))=∅ ) → Proof (Γ ∪ Q) B --fix lift
@@ -351,8 +353,13 @@ match h with
                                 False.elim (hcs u (M.refl u hw) hbs)
 
 
-| Proof.introF B Γ x h1 h2 => fun M u v hw hf => fun ma =>_
+| Proof.introF B Γ x h1 h2 => fun M u v hw hf => fun ma => by sorry
+| Proof.elimF A Γ τ h1 => fun M u v hw hf => by sorry
+| Proof.introE A Γ t h1 => fun M u v hw hf => by sorry
+| Proof.elimE A B Γ τ h1 h2 h3 => fun M u v hw hf => by sorry
 
 -- | Proof.elimF A Γ τ h1 => fun M u v hw hf => (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) τ
 -- | Proof.introE A Γ t h1 => fun M u v hw hf => Exists.intro (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq)))
 -- | Proof.elimE A B Γ τ h1 h2 h3 => fun M u v hw hf => Exists.elim (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (fun t ht => (h2 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) (h3 M u v hw ht))
+
+end IFOL

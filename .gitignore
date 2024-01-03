@@ -1,6 +1,6 @@
 /build
 /lake-packages/*
-/OLD/*
+/backup/*
 /.cache/*
 /fol/*
 IFOL3.lean
