@@ -6,14 +6,12 @@ import Mathlib.Tactic
 namespace IFOL
 open Set
 
-inductive relation_symbols : Type
-| relation_symbols : Nat → relation_symbols
+
 
 structure Signature where
   -- function_symbols : Type
-  relation_symbols : Type
   -- arity : function_symbols → Nat
-  arity' : relation_symbols → Nat
+  arity' : Nat → Nat
 
 inductive free_variable : Type
 | free_variable : ℤ → free_variable
@@ -25,10 +23,10 @@ inductive Term (σ : Signature): Type
 | free : free_variable  → Term σ
 -- | function_application (f : σ.function_symbols) : (Fin (σ.arity f) → Term σ ) → Term σ
 | const : Constant → Term σ --constant is key word in Lean 4
--- | relation_application (r : σ.relation_symbols) : (Fin (σ.arity' r) → Term σ )
+-- | relation_application (r : Nat) : (Fin (σ.arity' r) → Term σ )
 
 inductive Formula (σ : Signature) : Type
-  | atomic_formula : (r : σ.relation_symbols) → (Fin (σ.arity' r) → Term σ ) → Formula σ
+  | atomic_formula : (r : Nat) → (Fin (σ.arity' r) → Term σ ) → Formula σ
   | conjunction : Formula σ → Formula σ → Formula σ
   | disjunction : Formula σ → Formula σ → Formula σ
   | existential_quantification : Formula σ → Formula σ
@@ -189,12 +187,12 @@ structure model (σ : Signature) where
   A : Type --Domain
   R: world → world → Prop
   D: world → Set A  -- Domain
-  α: (w:world) → (r : σ.relation_symbols) → (Fin (σ.arity' r) → A) → Prop
+  α: (w:world) → (r : Nat) → (Fin (σ.arity' r) → A) → Prop
   β:  Nat → Set A  --Nat is the index of Constant
   refl : ∀ w ∈ W, R w w
   trans : ∀ w ∈ W, ∀ v ∈ W, ∀ u ∈ W, R w v → R v u → R w u
   obj_inc : (u v:world) → (h1: u ∈ W) → (h2: v ∈ W) →  R u v → D u ⊆ D v -- D u →  D v
-  mono: (u v:world) → (h1: u ∈ W) → (h2: v ∈ W) → (r: σ.relation_symbols) →
+  mono: (u v:world) → (h1: u ∈ W) → (h2: v ∈ W) → (r: Nat) →
     (args : (Fin (σ.arity' r) → A)) → (h: R u v) → α u r args →  (α v r args)--(mono u v h1 h2 h) --(α v r (fun x => mono u v h1 h2 h (args x)))
   R_closed : (u v:world) →  R u v → (u ∈ W)  → (v ∈ W)
 

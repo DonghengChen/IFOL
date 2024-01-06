@@ -11,8 +11,6 @@ def fts{σ :Signature}{n:Nat}(ts :Fin n → Term σ) : List (Term σ) := List.of
 def fts_inv{σ :Signature}{n:Nat}(ls :List (Term σ)) : Option (Fin n → (Term σ)) := if h : n = ls.length then some (fun id=> by rw[h] at id; exact ls.get id) else none
 -- def fts_inv{σ :Signature}{n:Nat}(ls :List (Term σ)){h:n=ls.length} : Fin n → Term σ := fun id=> by rw[h] at id; exact ls.get id
 
-#check cast
-#check Fin.cast_eq_cast
 
 
 
@@ -26,6 +24,3 @@ instance {σ :Signature}{n:Nat} : Encodable (Fin n → Term σ) := by
   simp [h2]
   funext id
   simp [h4]
-
-
-
