@@ -113,12 +113,6 @@ def mk_fn2 (s t : α) : Fin 2 → α
 | ⟨1, _⟩   => t
 | ⟨n+2, h⟩ => by simp at h
 
-def mk_fnk (n : Nat) (f : Fin n → α)(A:α) : Fin (n+1) → α :=by
-  intro i
-  induction i with
-  | mk a b => cases a with
-            | zero => exact A
-            | succ a => exact f ⟨a, Nat.lt_of_succ_lt_succ b⟩
 
 
 attribute [simp] mk_fn0 mk_fn1 mk_fn2

@@ -43,3 +43,5 @@ instance [Encodable ℕ] {σ : Signature}: Encodable (Term σ) := by
     unfold construct
     exact inferInstance
   apply Encodable.ofLeftInverse (g) (decode0 σ) (iso0)
+
+#print iso0

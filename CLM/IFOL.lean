@@ -6,11 +6,7 @@ import Mathlib.Tactic
 namespace IFOL
 open Set
 
-
-
 structure Signature where
-  -- function_symbols : Type
-  -- arity : function_symbols → Nat
   arity' : Nat → Nat
 
 inductive free_variable : Type
@@ -21,12 +17,10 @@ inductive Constant : Type
 
 inductive Term (σ : Signature): Type
 | free : free_variable  → Term σ
--- | function_application (f : σ.function_symbols) : (Fin (σ.arity f) → Term σ ) → Term σ
 | const : Constant → Term σ --constant is key word in Lean 4
--- | relation_application (r : Nat) : (Fin (σ.arity' r) → Term σ )
 
 inductive Formula (σ : Signature) : Type
-  | atomic_formula : (r : Nat) → (Fin (σ.arity' r) → Term σ ) → Formula σ
+  | atomic_formula : (r : ℕ ) → (Fin (σ.arity' r) → Term σ ) → Formula σ
   | conjunction : Formula σ → Formula σ → Formula σ
   | disjunction : Formula σ → Formula σ → Formula σ
   | existential_quantification : Formula σ → Formula σ
@@ -74,7 +68,7 @@ def Formula.lift (i : ℤ) (c : Nat) : Formula σ → Formula σ
   | ∀ᵢ f => ∀ᵢ (f.lift i (c+1))
 
 
-def Term.subsitution (src m e: Term σ) : Term σ :=
+def Term.substitution (src m e: Term σ) : Term σ :=
   match src,m with
   | .free n, .free n' =>
     match n,n' with
@@ -98,50 +92,39 @@ def Formula.depth : Formula σ → Nat
 --   | ¬ᵢ f | ∃ᵢ f | ∀ᵢ f => f.size + 1
 --   | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => f1.size + f2.size +1
 
-def Formula.subsitution (f : Formula σ) (m e: Term σ) : Formula σ :=
+def Formula.substitution (f : Formula σ) (m e: Term σ) : Formula σ :=
   match m with
   | .const t => match f with
-    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution  (.const t) e)
-    | f1 ∧ᵢ f2 => (f1.subsitution (.const t) e) ∧ᵢ (f2.subsitution (.const t) e)
-    | f1 ∨ᵢ f2 => (f1.subsitution (.const t) e) ∨ᵢ (f2.subsitution (.const t) e)
-    | f1 →ᵢ f2 => (f1.subsitution (.const t) e) →ᵢ (f2.subsitution (.const t) e)
+    | atomic_formula r ts => (# r) (fun q => (ts q).substitution  (.const t) e)
+    | f1 ∧ᵢ f2 => (f1.substitution (.const t) e) ∧ᵢ (f2.substitution (.const t) e)
+    | f1 ∨ᵢ f2 => (f1.substitution (.const t) e) ∨ᵢ (f2.substitution (.const t) e)
+    | f1 →ᵢ f2 => (f1.substitution (.const t) e) →ᵢ (f2.substitution (.const t) e)
     | ⊥  => ⊥
-    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.const t) e)
-    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.const t) e)
-    | ∀ᵢ f => ∀ᵢ (f.subsitution (.const t) e)
+    | ¬ᵢ f  => ¬ᵢ (f.substitution (.const t) e)
+    | ∃ᵢ f  => ∃ᵢ (f.substitution (.const t) e)
+    | ∀ᵢ f => ∀ᵢ (f.substitution (.const t) e)
   | .free t => match f with
-    | atomic_formula r ts => (# r) (fun q => (ts q).subsitution (.free t) e)
+    | atomic_formula r ts => (# r) (fun q => (ts q).substitution (.free t) e)
     | ⊥  => ⊥
-    | ¬ᵢ f  => ¬ᵢ (f.subsitution (.free t) e)
-    | ∃ᵢ f  => ∃ᵢ (f.subsitution (.free t) e)
-    | ∀ᵢ f => ∀ᵢ (f.subsitution (.free t) e)
+    | ¬ᵢ f  => ¬ᵢ (f.substitution (.free t) e)
+    | ∃ᵢ f  => ∃ᵢ (f.substitution (.free t) e)
+    | ∀ᵢ f => ∀ᵢ (f.substitution (.free t) e)
     | f1 ∧ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
                   match t with
-                  | .free_variable a => (f1.subsitution (.free (free_variable.free_variable (a + (f1.depth) - top))) e) ∧ᵢ (f2.subsitution (.free  (free_variable.free_variable (a + (depth f2) - top))) e)
+                  | .free_variable a => (f1.substitution (.free (free_variable.free_variable (a + (f1.depth) - top))) e) ∧ᵢ (f2.substitution (.free  (free_variable.free_variable (a + (depth f2) - top))) e)
     | f1 ∨ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
                   match t with
                   | .free_variable t =>
-                  (f1.subsitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e) ∨ᵢ (f2.subsitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
+                  (f1.substitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e) ∨ᵢ (f2.substitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
     | f1 →ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
                   match t with
                   | .free_variable t =>
-                  (f1.subsitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e)  →ᵢ (f2.subsitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
+                  (f1.substitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e)  →ᵢ (f2.substitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
 
 -- @[simp]
--- theorem size_of_substit_eq_size {f : Formula σ} : ∀ m e, (f.subsitution m e).size = f.size := by
+-- theorem size_of_substit_eq_size {f : Formula σ} : ∀ m e, (f.substitution m e).size = f.size := by
 --   induction f <;> (intro m e;cases m) <;> first | rfl | simp; aesop
 
-
-def β_reduction (f : Formula σ) (t : Term σ) : Formula σ :=
-match f with
-| .atomic_formula r ts => (# r) ts
-| f1 ∧ᵢ f2 => f1 ∧ᵢ f2
-| f1 ∨ᵢ f2 => f1 ∨ᵢ f2
-| f1 →ᵢ f2 => f1 →ᵢ f2
-| ⊥  => ⊥
-| ¬ᵢ f => ¬ᵢ f
-| ∃ᵢ f => (f.subsitution (Term.free (free_variable.free_variable 0)) (Term.lift 1 0 t)).lift (-1) 0
-| ∀ᵢ f => (f.subsitution (Term.free (free_variable.free_variable 0)) (Term.lift 1 0 t)).lift (-1) 0
 
 def Term.free_variables {σ : Signature} : Term σ → ℤ  → Set ℤ
 | free x => fun bound => match x with
@@ -173,10 +156,10 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Type
 | elimO   (A B C)(Γ Q G): Proof Γ (A ∨ᵢ B) → Proof (G ∪ {A}) C → Proof (Q ∪ {B}) C → Proof (Γ ∪ Q ∪ G) C
 | introN  (A B)(Γ Q): Proof (Γ∪{A}) B → Proof (Q∪{A}) (¬ᵢB) → Proof (Γ ∪ Q) (¬ᵢA)
 | ine     (A B)(Γ): Proof Γ A → Proof Γ (¬ᵢA) → Proof Γ B
-| introF (A)(Γ)(x) : Proof Γ A → x ∉ (Set.free_variables Γ) → Proof Γ (∀ᵢ (Formula.subsitution A (.free (IFOL.free_variable.free_variable x)) (.free (IFOL.free_variable.free_variable A.depth))))
-| elimF  (A)(Γ)(τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ (Formula.lift (-1) 0 (Formula.subsitution f (.free (free_variable.free_variable 0)) (τ.lift 1 0)))
-| introE (A)(Γ)(t: Term σ) : Proof Γ A → Proof Γ (∃ᵢ A.subsitution t (.free (free_variable.free_variable A.depth)))
-| elimE (A B)(Γ)(τ: Term σ): Proof Γ (∃ᵢ A) → Proof (Q ∪ {A.subsitution (Term.free (free_variable.free_variable (A.depth))) τ }) B →((τ.free_variables 0) ∩ (A.free_variables (A.depth))=∅ ) → Proof (Γ ∪ Q) B --fix lift
+| introF (A)(Γ)(x) : Proof Γ A → x ∉ (Set.free_variables Γ) → Proof Γ (∀ᵢ (Formula.substitution A (.free (IFOL.free_variable.free_variable x)) (.free (IFOL.free_variable.free_variable A.depth))))
+| elimF  (A)(Γ)(τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ (Formula.lift (-1) 0 (Formula.substitution f (.free (free_variable.free_variable 0)) (τ.lift 1 0)))
+| introE (A)(Γ)(t: Term σ) : Proof Γ A → Proof Γ (∃ᵢ A.substitution t (.free (free_variable.free_variable A.depth)))
+| elimE (A B)(Γ)(τ: Term σ): Proof Γ (∃ᵢ A) → Proof (Q ∪ {A.substitution (Term.free (free_variable.free_variable (A.depth))) τ }) B →((τ.free_variables 0) ∩ (A.free_variables (A.depth))=∅ ) → Proof (Γ ∪ Q) B --fix lift
 
 notation Γ "⊢" A => Proof Γ A
 
