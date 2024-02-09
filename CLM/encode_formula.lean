@@ -77,5 +77,4 @@ instance {σ : Signature}: Encodable (Formula σ) :=by
   apply Encodable.ofLeftInjection f finv
   intro form
   induction form
-  simp [f, finv , fopt2, fopt1, *]
-  repeat (unfold f<;>simp [finv, fopt2, fopt1, *])
+  repeat (simp [f,finv, fopt2, fopt1, *])
