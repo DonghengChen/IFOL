@@ -10,7 +10,7 @@ structure Signature where
   arity' : Nat → Nat
 
 inductive free_variable : Type
-| free_variable : ℤ → free_variable
+| free_variable : Nat → free_variable
 
 inductive Constant : Type
 | Constant : Nat → Constant
@@ -36,7 +36,6 @@ def Term_eql : Term σ → Term σ → Prop
 
 
 
-
 notation "⊥" => Formula.bottom
 infixr:50 "→ᵢ" => Formula.implication
 infixr:40 "∧ᵢ" => Formula.conjunction
@@ -47,17 +46,24 @@ prefix:19 "#" => Formula.atomic_formula
 prefix:20 "¬ᵢ" => Formula.negation
 
 
-def Term.lift (i : ℤ) (c : Nat) : Term σ → Term σ --i c n → n
+
+def Term.lift (i : Nat) (c : Nat) : Term σ → Term σ --i c n → n, c is bound
   | .free n =>by  cases n with
     | free_variable n'=> if n' < c then
     exact free (free_variable.free_variable n')
     else
       exact free (free_variable.free_variable (n'+i))
-
-  -- | function_application f ts => exact Term.function_application f (fun q:Fin (σ.arity f)=> Term_lift i c (ts q))
   | .const n => const n
 
-def Formula.lift (i : ℤ) (c : Nat) : Formula σ → Formula σ
+def Term.down (i : Nat) (c : Nat) : Term σ → Term σ --i c n → n, c is bound
+  | .free n =>by  cases n with
+    | free_variable n'=> if n' < c then
+    exact free (free_variable.free_variable n')
+    else
+      exact free (free_variable.free_variable (n'-i))
+  | .const n => const n
+
+def Formula.lift (i : Nat) (c : Nat) : Formula σ → Formula σ
   | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).lift i c)
   | f1 ∧ᵢ f2 =>  (f1.lift i c) ∧ᵢ (f2.lift i c)
   | f1 ∨ᵢ f2 =>  (f1.lift i c) ∨ᵢ (f2.lift i c)
@@ -67,6 +73,15 @@ def Formula.lift (i : ℤ) (c : Nat) : Formula σ → Formula σ
   | ∃ᵢ f =>  ∃ᵢ (f.lift i (c+1))
   | ∀ᵢ f => ∀ᵢ (f.lift i (c+1))
 
+def Formula.down (i : Nat) (c : Nat) : Formula σ → Formula σ
+  | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).down i c)
+  | f1 ∧ᵢ f2 =>  (f1.down i c) ∧ᵢ (f2.down i c)
+  | f1 ∨ᵢ f2 =>  (f1.down i c) ∨ᵢ (f2.down i c)
+  | f1 →ᵢ f2 =>  (f1.down i c) →ᵢ (f2.down i c)
+  | ⊥ => ⊥
+  | ¬ᵢ f =>  ¬ᵢ (f.down i c)
+  | ∃ᵢ f =>  ∃ᵢ (f.down i (c+1))
+  | ∀ᵢ f => ∀ᵢ (f.down i (c+1))
 
 def Term.substitution (src m e: Term σ) : Term σ :=
   match src,m with
@@ -80,11 +95,11 @@ def Term.substitution (src m e: Term σ) : Term σ :=
   | const n, free _ => const n
 
 
-def Formula.depth : Formula σ → Nat
-  | ¬ᵢ f => depth f
-  | ∃ᵢ f | ∀ᵢ f => (depth f) + 1
-  | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => max (depth f1) (depth f2)
-  | _ => 0
+-- def Formula.depth : Formula σ → Nat
+--   | ¬ᵢ f => depth f
+--   | ∃ᵢ f | ∀ᵢ f => (depth f) + 1
+--   | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => max (depth f1) (depth f2)
+--   | _ => 0
 
 -- @[simp]
 -- def Formula.size : Formula σ → Nat
@@ -92,59 +107,58 @@ def Formula.depth : Formula σ → Nat
 --   | ¬ᵢ f | ∃ᵢ f | ∀ᵢ f => f.size + 1
 --   | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => f1.size + f2.size +1
 
-def Formula.substitution (f : Formula σ) (m e: Term σ) : Formula σ :=
+
+
+
+private def Formula.substitution (f : Formula σ) (m e: Term σ) (bound : Nat) : Formula σ :=
   match m with
   | .const t => match f with
     | atomic_formula r ts => (# r) (fun q => (ts q).substitution  (.const t) e)
-    | f1 ∧ᵢ f2 => (f1.substitution (.const t) e) ∧ᵢ (f2.substitution (.const t) e)
-    | f1 ∨ᵢ f2 => (f1.substitution (.const t) e) ∨ᵢ (f2.substitution (.const t) e)
-    | f1 →ᵢ f2 => (f1.substitution (.const t) e) →ᵢ (f2.substitution (.const t) e)
+    | f1 ∧ᵢ f2 => (f1.substitution (.const t) e 0) ∧ᵢ (f2.substitution (.const t) e 0)
+    | f1 ∨ᵢ f2 => (f1.substitution (.const t) e 0) ∨ᵢ (f2.substitution (.const t) e 0)
+    | f1 →ᵢ f2 => (f1.substitution (.const t) e 0) →ᵢ (f2.substitution (.const t) e 0)
     | ⊥  => ⊥
-    | ¬ᵢ f  => ¬ᵢ (f.substitution (.const t) e)
-    | ∃ᵢ f  => ∃ᵢ (f.substitution (.const t) e)
-    | ∀ᵢ f => ∀ᵢ (f.substitution (.const t) e)
+    | ¬ᵢ f  => ¬ᵢ (f.substitution (.const t) e 0)
+    | ∃ᵢ f  => ∃ᵢ (f.substitution (.const t) e 0)
+    | ∀ᵢ f => ∀ᵢ (f.substitution (.const t) e 0)
   | .free t => match f with
     | atomic_formula r ts => (# r) (fun q => (ts q).substitution (.free t) e)
     | ⊥  => ⊥
-    | ¬ᵢ f  => ¬ᵢ (f.substitution (.free t) e)
-    | ∃ᵢ f  => ∃ᵢ (f.substitution (.free t) e)
-    | ∀ᵢ f => ∀ᵢ (f.substitution (.free t) e)
-    | f1 ∧ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                  match t with
-                  | .free_variable a => (f1.substitution (.free (free_variable.free_variable (a + (f1.depth) - top))) e) ∧ᵢ (f2.substitution (.free  (free_variable.free_variable (a + (depth f2) - top))) e)
-    | f1 ∨ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                  match t with
-                  | .free_variable t =>
-                  (f1.substitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e) ∨ᵢ (f2.substitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
-    | f1 →ᵢ f2 => let (top:ℕ)  := (max (depth f1) (depth f2) )
-                  match t with
-                  | .free_variable t =>
-                  (f1.substitution (.free (free_variable.free_variable ( t+ (f1.depth) - top))) e)  →ᵢ (f2.substitution (.free  (free_variable.free_variable (t+(depth f2) - top))) e)
+    | ¬ᵢ f  => ¬ᵢ (f.substitution (.free t) e bound)
+    | ∃ᵢ f  => ∃ᵢ (f.substitution ((Term.free t).lift 1 bound) e (bound+1))
+    | ∀ᵢ f => ∀ᵢ  (f.substitution ((Term.free t).lift 1 bound) e (bound+1))
+    | f1 ∧ᵢ f2 => (f1.substitution  (.free t) e bound) ∧ᵢ (f2.substitution  (.free t) e bound)
+    | f1 ∨ᵢ f2 => (f1.substitution  (.free t) e bound) ∨ᵢ (f2.substitution  (.free t) e bound)
+    | f1 →ᵢ f2 =>  (f1.substitution  (.free t) e bound) →ᵢ  (f2.substitution  (.free t) e bound)
+
+def Formula.Substitution (f : Formula σ) (m e: Term σ) : Formula σ := f.substitution m e 0
 
 -- @[simp]
 -- theorem size_of_substit_eq_size {f : Formula σ} : ∀ m e, (f.substitution m e).size = f.size := by
 --   induction f <;> (intro m e;cases m) <;> first | rfl | simp; aesop
 
 
-def Term.free_variables {σ : Signature} : Term σ → ℤ  → Set ℤ
-| free x => fun bound => match x with
-  | .free_variable z =>if z>= bound then {z} else ∅
-| const _ => fun _ => ∅
+private def Term.free_variables {σ : Signature}(t: Term σ)(bound : Nat) : Set (Term σ) :=
+match t with
+| free x =>  match x with
+  | .free_variable z =>if z>= bound then {Term.free (free_variable.free_variable z)} else ∅
+| const _ => ∅
 
-def Formula.free_variables {σ : Signature} : Formula σ → ℤ  → Set ℤ
-  | atomic_formula r ts => fun bound=> ⋃ (i:Fin (σ.arity' r)), (ts i).free_variables bound
-  | ¬ᵢ f => fun bound => free_variables f bound
-  | ⊥  => fun _ => ∅
+private def Formula.free_variables {σ : Signature}(f : Formula σ)(bound : Nat) : Set (Term σ) :=
+match f with
+  | atomic_formula r ts => ⋃ (i:Fin (σ.arity' r)), (ts i).free_variables bound
+  | ¬ᵢ f => free_variables f bound
+  | ⊥  =>  ∅
   | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 =>
-    fun bound => (f1.free_variables bound) ∪ (f2.free_variables bound)
+     (f1.free_variables bound) ∪ (f2.free_variables bound)
   | ∃ᵢ f | ∀ᵢ f =>
-    fun bound => f.free_variables (bound+1)
+     f.free_variables (bound+1)
 
-def Set.free_variables (Γ : Set (Formula σ)) : Set ℤ :=
+def Set.free_variables (Γ : Set (Formula σ)) : Set (Term σ) :=
   ⋃ (f ∈ Γ), f.free_variables 0
 
 
-inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Type
+inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Prop
 | ref        : (A ∈ Γ) → Proof Γ A
 | introI (A B)(Γ) : Proof (Γ∪{A}) B → Proof Γ (A →ᵢ B)
 | elimI (A B)(Γ Q): Proof Γ (A →ᵢ B) → Proof Q A → Proof (Γ ∪ Q) B
@@ -156,10 +170,10 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Type
 | elimO   (A B C)(Γ Q G): Proof Γ (A ∨ᵢ B) → Proof (G ∪ {A}) C → Proof (Q ∪ {B}) C → Proof (Γ ∪ Q ∪ G) C
 | introN  (A B)(Γ Q): Proof (Γ∪{A}) B → Proof (Q∪{A}) (¬ᵢB) → Proof (Γ ∪ Q) (¬ᵢA)
 | ine     (A B)(Γ): Proof Γ A → Proof Γ (¬ᵢA) → Proof Γ B
-| introF (A)(Γ)(x) : Proof Γ A → x ∉ (Set.free_variables Γ) → Proof Γ (∀ᵢ (Formula.substitution A (.free (IFOL.free_variable.free_variable x)) (.free (IFOL.free_variable.free_variable A.depth))))
-| elimF  (A)(Γ)(τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ (Formula.lift (-1) 0 (Formula.substitution f (.free (free_variable.free_variable 0)) (τ.lift 1 0)))
-| introE (A)(Γ)(t: Term σ) : Proof Γ A → Proof Γ (∃ᵢ A.substitution t (.free (free_variable.free_variable A.depth)))
-| elimE (A B)(Γ)(τ: Term σ): Proof Γ (∃ᵢ A) → Proof (Q ∪ {A.substitution (Term.free (free_variable.free_variable (A.depth))) τ }) B →((τ.free_variables 0) ∩ (A.free_variables (A.depth))=∅ ) → Proof (Γ ∪ Q) B --fix lift
+| introF (A: Formula σ)(Γ)(x) : Proof Γ A → x ∉ (Set.free_variables Γ) → Proof Γ (∀ᵢ (A.lift 1 0).Substitution x (Term.free (free_variable.free_variable 0)))
+| elimF  (A: Formula σ)(Γ)(τ: Term σ) : Proof Γ (∀ᵢ A) → Proof Γ ((A.Substitution (Term.free (free_variable.free_variable 0)) τ).down 1 0)
+| introE (A : Formula σ)(Γ)(t: Term σ)(v : free_variable) : Proof Γ (A.Substitution (Term.free v) t)  → Proof Γ (∃ᵢ (A.lift 1 0).Substitution (Term.free v) (Term.free (free_variable.free_variable 0) ))
+| elimE (A B: Formula σ)(Γ Q: Set (Formula σ))(τ: Term σ)(v : free_variable): Proof Γ (∃ᵢ A) → Proof (Q∪{(A.Substitution (Term.free v) t)}) B → Proof (Γ∪Q) B
 
 notation Γ "⊢" A => Proof Γ A
 
@@ -181,9 +195,9 @@ structure model (σ : Signature) where
 
 def codomain {σ : Signature}(M : model σ)(w : M.world)(args : ((Type u) → M.A)) : Prop := ∀ (x: Type u), (args x) ∈ (M.D w)
 
-def modify_value_function (M : model σ) (v : Term σ → M.A) (item : M.A) : Term σ → M.A --head insert
+def insert_value_function (M : model σ) (v : Term σ → M.A) (item : M.A) : Term σ → M.A --head insert from zero
 | .free z => match z with
-  | .free_variable n => if n<=1 then item else v (.free (.free_variable (n+1)))
+  | .free_variable n => if n=0 then item else v (.free (.free_variable (n+1)))
 | .const z => v (.const z)
 
 
@@ -196,8 +210,8 @@ def Formula.force_form (M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Term σ �
 | f1 →ᵢ f2 => ∀ u, (h:M.R w u) → (f1.force_form  M u (M.R_closed w u h hw) v) → (f2.force_form  M u (M.R_closed w u h hw) v)
 | f1 ∧ᵢ f2 => (f1.force_form  M w hw v) ∧ (f2.force_form  M w hw v)
 | f1 ∨ᵢ f2 => (f1.force_form  M w hw v) ∨ (f2.force_form  M w hw v)
-| ∃ᵢ f => ∃ (t:M.A), f.force_form M w hw (modify_value_function M v t)
-| ∀ᵢ f => ∀ (t:M.A), f.force_form M w hw (modify_value_function M v t)
+| ∃ᵢ f => ∃ (t:M.A), f.force_form M w hw (insert_value_function M v t)
+| ∀ᵢ f => ∀ (t:M.A), f.force_form M w hw (insert_value_function M v t)
 -- | Formula.equalities t1 t2 => fun w => sorry
 -- termination_by _ n w M v f => f.size
 
@@ -223,9 +237,9 @@ lemma Formula.mono_proof {σ : Signature}(M: model σ)(u v:M.world)(hr: M.R u v)
     h1 w2 h6
   | existential_quantification f =>
     let ⟨t,ht⟩ := h1
-    ⟨t,(Formula.mono_proof M u v hr f hw (modify_value_function M val t) ht)⟩
+    ⟨t,(Formula.mono_proof M u v hr f hw (insert_value_function M val t) ht)⟩
   | universal_quantification f => fun t =>
-    Formula.mono_proof M u v hr f hw (modify_value_function M val t) (h1 t)
+    Formula.mono_proof M u v hr f hw (insert_value_function M val t) (h1 t)
 
 
 
@@ -235,8 +249,7 @@ def semantic_consequence {σ : Signature} (Γ : Set (Formula σ)) (A : Formula �
 
 notation Γ "⊧" A => semantic_consequence Γ A
 
-def soundness  (h : Q ⊢ A) : (Q ⊧ A) := by rename_i σ
-                                           exact
+def soundness (h : Q ⊢ A) : (Q ⊧ A) :=
 match h with
 | Proof.ref h => fun M w v hw hs=> (hs A) h
 | Proof.introI A B Γ h1 =>
@@ -334,10 +347,19 @@ match h with
                                 False.elim (hcs u (M.refl u hw) hbs)
 
 
-| Proof.introF B Γ x h1 h2 => fun M u v hw hf => fun ma => by sorry
-| Proof.elimF A Γ τ h1 => fun M u v hw hf => by sorry
-| Proof.introE A Γ t h1 => fun M u v hw hf => by sorry
-| Proof.elimE A B Γ τ h1 h2 h3 => fun M u v hw hf => by sorry
+| Proof.introF B Γ x h1 h2 => fun M u v hw hf => fun ma => by
+    have hs:= soundness h1 M u v hw hf
+    sorry
+
+| Proof.elimF A Γ τ h1 => fun M u v hw hf => by
+    have hs:= soundness h1 M u v hw hf
+    sorry
+| Proof.introE A Γ v t h1 => fun M u v hw hf => by
+    have hs:= soundness h1 M u v hw hf
+    sorry
+| Proof.elimE A B Γ Q τ v h1 h2 => fun M u v hw hf => by
+    have hs:= soundness h2 M u v hw
+    sorry
 
 -- | Proof.elimF A Γ τ h1 => fun M u v hw hf => (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) τ
 -- | Proof.introE A Γ t h1 => fun M u v hw hf => Exists.intro (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq)))
