@@ -249,7 +249,7 @@ def semantic_consequence {σ : Signature} (Γ : Set (Formula σ)) (A : Formula �
 
 notation Γ "⊧" A => semantic_consequence Γ A
 
-def soundness (h : Q ⊢ A) : (Q ⊧ A) :=
+def soundness {σ:Signature}{Q: Set (Formula σ)}{A: Formula σ}(h : Q ⊢ A) : (Q ⊧ A) :=
 match h with
 | Proof.ref h => fun M w v hw hs=> (hs A) h
 | Proof.introI A B Γ h1 =>
@@ -266,18 +266,18 @@ match h with
                                       assumption
                           | inl hx2=> have hfx:_ := hf x hx2
                                       exact Formula.mono_proof M w u hu x hw v hfx
-| Proof.elimI  A B Q X hb hc =>fun M u v hw hf =>
-                              have hbs: _ := soundness hb M u v hw
-                              have hcs: _ := soundness hc M u v hw
-                              have hfb:
-                                       (∀ (f : Formula σ), f ∈ Q → Formula.force_form M u hw v f)
-                                        := fun f hfq => hf f (Set.mem_union_left _ hfq)
-                              have hfc:
-                                       (∀ (f : Formula σ), f ∈ X → Formula.force_form M u hw v f)
-                                        := fun f hfx => hf f (Set.mem_union_right _ hfx)
-                              have h1: Formula.force_form M u hw v A := hcs hfc
-                              have h2: Formula.force_form M u hw v (A →ᵢ B) := hbs hfb
-                              h2 u (M.refl u hw) h1
+| Proof.elimI  A B Q X hb7 hc =>fun M u v hw hf => by sorry
+                              -- have hbs: _ := soundness hb7 M u v hw
+                              -- have hcs: _ := soundness hc M u v hw
+                              -- have hfb:
+                              --          (∀ (f : Formula σ), f ∈ Q → Formula.force_form M u hw v f)
+                              --           := fun f hfq => hf f (Set.mem_union_left _ hfq)
+                              -- have hfc:
+                              --          (∀ (f : Formula σ), f ∈ X → Formula.force_form M u hw v f)
+                              --           := fun f hfx => hf f (Set.mem_union_right _ hfx)
+                              -- have h1: Formula.force_form M u hw v A := hcs hfc
+                              -- have h2: Formula.force_form M u hw v (A →ᵢ B) := hbs hfb
+                              -- h2 u (M.refl u hw) h1
 
 | Proof.introA Γ Q A B h1 h2 => fun M u v hw hf =>
                                 have hbs: _ := soundness h1 M u v hw
@@ -291,74 +291,71 @@ match h with
                                 have h1: Formula.force_form M u hw v A := hbs hfb
                                 have h2: Formula.force_form M u hw v B := hcs hfc
                                 ⟨h1,h2⟩
-| Proof.elimA1 A B Γ h1 => fun M u v hw hf =>((soundness h1 M u v hw) hf ).left
-| Proof.elimA2 A B Γ h1 => fun M u v hw hf => ((soundness h1 M u v hw) hf ).right
-| Proof.introO1 A B Γ h1 => fun M u v hw hf => Or.inl ((soundness h1 M u v hw) hf)
-| Proof.introO2 A B Γ h1 => fun M u v hw hf => Or.inr ((soundness h1 M u v hw) hf)
-| Proof.elimO A B C Γ Q G h1 h2 h3 => fun M u v hw hf =>
-                                have hbs: _ := soundness h1 M u v hw
-                                have hcs: _ := soundness h2 M u v hw
-                                have hds: _ := soundness h3 M u v hw
-                                have hfb: _ := hbs fun f hfq => hf f (Set.mem_union_left _ (Set.mem_union_left _ hfq))
-                                have hfc:
-                                         (∀ (f : Formula σ), f ∈ Q → Formula.force_form M u hw v f)
-                                          := fun f hfx => hf f (Set.mem_union_left _ ((Set.mem_union_right _ hfx)))
-                                have hfd:
-                                         (∀ (f : Formula σ), f ∈ G → Formula.force_form M u hw v f)
-                                          := fun f hfx => hf f (Set.mem_union_right _ hfx)
-                                have hB:(Formula.force_form M u hw v B) → (∀ (f : Formula σ), f ∈ Q ∪ {B} → Formula.force_form M u hw v f) :=
-                                         fun h4 f hx=> match hx with
-                                                      | Or.inl hx1 => hfc f hx1
-                                                      | Or.inr hx2 => have h5: f= B := by apply hx2
-                                                                      by rw [h5];exact h4
-                                have hA:(Formula.force_form M u hw v A) → (∀ (f : Formula σ), f ∈ G ∪ {A} → Formula.force_form M u hw v f) :=
-                                         fun h4 f hx=> match hx with
-                                                      | Or.inl hx1 => hfd f hx1
-                                                      | Or.inr hx2 => have h5: f= A := by apply hx2
-                                                                      by rw [h5];exact h4
-                                Or.elim hfb (fun z=> hcs (hA z)) (fun z=> hds (hB z))
+| Proof.elimA1 A B Γ h17 => fun M u v hw hf =>by sorry --((soundness h17 M u v hw) hf ).left
+| Proof.elimA2 A B Γ h1 => fun M u v hw hf => by sorry --((soundness h1 M u v hw) hf ).right
+| Proof.introO1 A B Γ h1 => fun M u v hw hf => by sorry --Or.inl ((soundness h1 M u v hw) hf)
+| Proof.introO2 A B Γ h1 => fun M u v hw hf => by sorry --Or.inr ((soundness h1 M u v hw) hf)
+| Proof.elimO A B C Γ Q G h17 h2 h3 => fun M u v hw hf => by sorry
+                                -- have hbs: _ := soundness h17 M u v hw
+                                -- have hcs: _ := soundness h2 M u v hw
+                                -- have hds: _ := soundness h3 M u v hw
+                                -- have hfb: _ := hbs fun f hfq => hf f (Set.mem_union_left _ (Set.mem_union_left _ hfq))
+                                -- have hfc:
+                                --          (∀ (f : Formula σ), f ∈ Q → Formula.force_form M u hw v f)
+                                --           := fun f hfx => hf f (Set.mem_union_left _ ((Set.mem_union_right _ hfx)))
+                                -- have hfd:
+                                --          (∀ (f : Formula σ), f ∈ G → Formula.force_form M u hw v f)
+                                --           := fun f hfx => hf f (Set.mem_union_right _ hfx)
+                                -- have hB:(Formula.force_form M u hw v B) → (∀ (f : Formula σ), f ∈ Q ∪ {B} → Formula.force_form M u hw v f) :=
+                                --          fun h4 f hx=> match hx with
+                                --                       | Or.inl hx1 => hfc f hx1
+                                --                       | Or.inr hx2 => have h5: f= B := by apply hx2
+                                --                                       by rw [h5];exact h4
+                                -- have hA:(Formula.force_form M u hw v A) → (∀ (f : Formula σ), f ∈ G ∪ {A} → Formula.force_form M u hw v f) :=
+                                --          fun h4 f hx=> match hx with
+                                --                       | Or.inl hx1 => hfd f hx1
+                                --                       | Or.inr hx2 => have h5: f= A := by apply hx2
+                                --                                       by rw [h5];exact h4
+                                -- Or.elim hfb (fun z=> hcs (hA z)) (fun z=> hds (hB z))
 
-| Proof.introN A B Γ Q h1 h2 => fun M u v hu hf =>
-                                fun w hw1 hw2 =>
-                                have hw := M.R_closed u w hw1 hu
-                                let hs1:= soundness h1 M w v hw
-                                let hs2:= soundness h2 M w v hw
-                                have hG:(Formula.force_form M w hw v A) →
-                                (∀ (f : Formula σ), f ∈ Γ  ∪ {A} → Formula.force_form M w hw v f) :=
-                                fun h4 f hx=> match hx with
-                                                      | Or.inl hx1 => Formula.mono_proof M u w hw1 f hu v (hf f (Set.mem_union_left Q hx1))
-                                                      | Or.inr hx2 => have h5: f= A := by apply hx2
-                                                                      by rw [h5];exact h4
-                                have hQ:(Formula.force_form M w hw v A) →
-                                (∀ (f : Formula σ), f ∈ Q  ∪ {A} → Formula.force_form M w hw v f) :=
-                                fun h4 f hx=> match hx with
-                                                      | Or.inl hx1 => Formula.mono_proof M u w hw1 f hu v (hf f (Set.mem_union_right _ hx1))
-                                                      | Or.inr hx2 => have h5: f= A := by apply hx2
-                                                                      by rw [h5];exact h4
-                                let ha1:=hs1 (hG hw2)
-                                let ha2:=hs2 (hQ hw2)
-                                by apply ha2 w (M.refl w hw) ha1 ;
+| Proof.introN A B Γ Q h1 h2 => fun M u v hu hf => by sorry
+                                -- fun w hw1 hw2 =>
+                                -- have hw := M.R_closed u w hw1 hu
+                                -- let hs1:= soundness h1 M w v hw
+                                -- let hs2:= soundness h2 M w v hw
+                                -- have hG:(Formula.force_form M w hw v A) →
+                                -- (∀ (f : Formula σ), f ∈ Γ  ∪ {A} → Formula.force_form M w hw v f) :=
+                                -- fun h4 f hx=> match hx with
+                                --                       | Or.inl hx1 => Formula.mono_proof M u w hw1 f hu v (hf f (Set.mem_union_left Q hx1))
+                                --                       | Or.inr hx2 => have h5: f= A := by apply hx2
+                                --                                       by rw [h5];exact h4
+                                -- have hQ:(Formula.force_form M w hw v A) →
+                                -- (∀ (f : Formula σ), f ∈ Q  ∪ {A} → Formula.force_form M w hw v f) :=
+                                -- fun h4 f hx=> match hx with
+                                --                       | Or.inl hx1 => Formula.mono_proof M u w hw1 f hu v (hf f (Set.mem_union_right _ hx1))
+                                --                       | Or.inr hx2 => have h5: f= A := by apply hx2
+                                --                                       by rw [h5];exact h4
+                                -- let ha1:=hs1 (hG hw2)
+                                -- let ha2:=hs2 (hQ hw2)
+                                -- by apply ha2 w (M.refl w hw) ha1 ;
 
 
                                 -- have hB:Formula.force_form M w hw v B :=
 | Proof.ine A B Γ h1 h2 => fun M u v hw hf =>
-                                have hbs: _ := soundness h1 M u v hw hf
-                                have hcs: _ := soundness h2 M u v hw hf
-                                False.elim (hcs u (M.refl u hw) hbs)
+                                by sorry
+                                -- have hbs: _ := soundness h1 M u v hw hf
+                                -- have hcs: _ := soundness h2 M u v hw hf
+                                -- False.elim (hcs u (M.refl u hw) hbs)
 
 
 | Proof.introF B Γ x h1 h2 => fun M u v hw hf => fun ma => by
-    have hs:= soundness h1 M u v hw hf
     sorry
 
 | Proof.elimF A Γ τ h1 => fun M u v hw hf => by
-    have hs:= soundness h1 M u v hw hf
     sorry
 | Proof.introE A Γ v t h1 => fun M u v hw hf => by
-    have hs:= soundness h1 M u v hw hf
     sorry
 | Proof.elimE A B Γ Q τ v h1 h2 => fun M u v hw hf => by
-    have hs:= soundness h2 M u v hw
     sorry
 
 -- | Proof.elimF A Γ τ h1 => fun M u v hw hf => (h1 M u v hw (fun f hfq => hf f (Set.mem_union_left _ hfq))) (h1 M u v hw (fun f hfq => hf f (Set.mem_union_right _ hfq))) τ
