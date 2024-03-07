@@ -237,7 +237,7 @@ assumption
 lemma Finset_proof {Γ :Set (Formula σ)}{r: Formula σ}(h: Γ ⊢ r):∃ (Γ':Set (Formula σ)),(Γ' ⊆ Γ) ∧ (Γ' ⊢ r) ∧ (Γ'.Finite):=by
 induction h with
 | ref ha =>rename_i f Q;use {f};simp;constructor;trivial;constructor;simp
-| introI A B h2 ih h3=>
+| introI A B h2 _ h3=>
   rcases h3 with ⟨Γ',h0,h1,h4⟩
   use Γ'\{A}
   constructor;
@@ -252,7 +252,7 @@ induction h with
   exact h1
   apply Set.Finite.diff
   assumption
-| elimI A B Δ h1 h2 ih h3 h4=>
+| elimI A B Δ h1 _ _ h3 h4=>
   rcases h3 with ⟨Γ',h11,h12,h13⟩
   rcases h4 with ⟨Γ'',h5,h6,h7⟩
   use Γ' ∪ Γ''
@@ -264,7 +264,7 @@ induction h with
   apply Set.Finite.union
   assumption
   assumption
-| introA A B f g h1 h2 h3 h4=>
+| introA A B f g _ _ h3 h4=>
   rcases h3 with ⟨Γ',h11,h12,h13⟩
   rcases h4 with ⟨Γ'',h5,h6,h7⟩
   use Γ' ∪ Γ''
@@ -276,7 +276,7 @@ induction h with
   apply Set.Finite.union
   assumption
   assumption
-| elimA1 A B Δ f g=>
+| elimA1 A B Δ _ g=>
   rcases g with ⟨Γ',h1,h2,h3⟩
   use Γ'
   constructor;
@@ -284,7 +284,7 @@ induction h with
   constructor;
   apply Proof.elimA1 _ _ _ h2
   assumption
-| elimA2 A B Δ f g=>
+| elimA2 A B Δ _ g=>
   rcases g with ⟨Γ',h1,h2,h3⟩
   use Γ'
   constructor;
@@ -292,7 +292,7 @@ induction h with
   constructor;
   apply Proof.elimA2 _ _ _ h2
   assumption
-| introO1 A B f g h1=>
+| introO1 A B f _ h1=>
   rcases h1 with ⟨Γ',h2,h3,h4⟩
   use Γ'
   constructor;
@@ -300,7 +300,7 @@ induction h with
   constructor;
   apply Proof.introO1 _ _ _ h3
   assumption
-| introO2 A B f g h1=>
+| introO2 A B f _ h1=>
   rcases h1 with ⟨Γ',h2,h3,h4⟩
   use Γ'
   constructor;
@@ -308,7 +308,7 @@ induction h with
   constructor;
   apply Proof.introO2 _ _ _ h3
   assumption
-| elimO A B Δ f g h1 h2 h3 h4 h5 h6 h7=>
+| elimO A B Δ f g h1 _ _ _ h5 h6 h7=>
   rcases h6 with ⟨Γ',h61,h62,h63⟩
   rcases h7 with ⟨Γ'',h71,h72,h73⟩
   rcases h5 with ⟨Γ''',h51,h52,h53⟩
@@ -338,7 +338,7 @@ induction h with
   apply Finite.diff
   assumption
   assumption
-| introN A h1 P S h2 h3 h4 h5=>
+| introN A h1 P S _ _ h4 h5=>
   rcases h4 with ⟨Γ',h41,h42,h43⟩
   rcases h5 with ⟨Γ'',h51,h52,h53⟩
   use ((Γ' \ {A}) ∪ (Γ'' \ {A}))
@@ -357,7 +357,7 @@ induction h with
   assumption
   apply Finite.diff
   assumption
-| ine A h1 P S h2 h3 h4 =>
+| ine A h1 P _ _ h3 h4 =>
   rcases h4 with ⟨Γ',h41,h42,h43⟩
   rcases h3 with ⟨Γ'',h51,h52,h53⟩
   use Γ' ∪ Γ''
@@ -373,7 +373,7 @@ induction h with
   apply Finite.union
   assumption
   assumption
-| introF A h1 P S h2 h3 =>
+| introF A h1 P _ h2 h3 =>
   rcases h3 with ⟨Γ',h31,h32,h33⟩
   use Γ'
   constructor;
@@ -396,7 +396,7 @@ induction h with
   exact hf.left
   exact hf.right
   assumption
-| elimF A S P h1 h2 =>
+| elimF A S P _ h2 =>
   rcases h2 with ⟨Γ',h31,h32,h33⟩
   use Γ'
   constructor;
@@ -405,7 +405,7 @@ induction h with
   apply Proof.elimF
   assumption
   assumption
-| introE A h1 P S h2 h3=>
+| introE A h1 P S _ h3=>
   rcases h3 with ⟨Γ',h31,h32,h33⟩
   use Γ'
   constructor;
@@ -441,45 +441,124 @@ induction h with
 
 
 
+def primen_sub_prf {Γ :Set (Formula σ)}{p r: Formula σ} :
+  (prime Γ r ⊢ p) → ∃ n, primen Γ r n ⊢ p := by
+  intro h
+  have h:= Finset_proof h
+  rcases h with ⟨Γ',h1,h2,h3⟩
+  unfold prime at h1
+  have dq:∃ (I : Set ℕ), Set.Finite I ∧ Γ' ⊆ ⋃ i ∈ I, primen Γ r i := by
+    apply Set.finite_subset_iUnion
+    assumption
+    exact h1
+
+  rcases dq with ⟨I,h4,h5⟩
+  by_cases I = ∅
+  simp [h] at h5
+  have h5:Γ' = ∅ := by apply Set.subset_eq_empty h5;rfl
+  simp [h5] at h2
+  use 0
+  have h6:= cond_mono_proof h2 (primen Γ r 0)
+  simp
+  simp at h6
+  exact h6
+  have h7: I ≠ ∅ := by simp [h]
+  have dp:=Set.Finite.exists_maximal_wrt (λ x=>x) I h4 (Set.nonempty_iff_ne_empty.mpr h7)
+  simp at dp
+  rcases dp with ⟨n,_,hn2⟩
+  use n
+  suffices hz:Γ' ⊆ primen Γ r n
+  have hz2: (primen Γ r n ∪ Γ') ⊢ p := cond_mono_proof h2 _
+  rw [Set.union_eq_self_of_subset_right] at hz2
+  exact hz2
+  exact hz
+  apply subset_trans h5
+  simp
+  intro i hi
+  suffices hq:i<= n
+  exact primen_mono hq
+  by_cases i ≤ n
+  assumption
+  have ht: n<=i:= by linarith
+  have hq:= hn2 i hi ht
+  linarith
+
+
+lemma insert_subset1{σ : Signature}(S:Set (Formula σ) )(r: Formula σ )(nn:Nat) :S ⊆ insertn S r nn:= by
+  induction nn
+  simp
+  rfl
+  simp
+  rename_i n nh
+  cases (@Encodable.decode (Formula σ) _ n)
+  simp
+  assumption
+  rename_i val
+  simp
+  cases val
+  <;>simp<;> try assumption
+  rename_i f1 f2
+  by_cases insertn S r n⊢f1∨ᵢf2
+  simp[h]
+  by_cases insert f1 (insertn S r n)⊢r
+  simp [h]
+  apply subset_trans nh
+  apply Set.subset_insert
+  by_cases insert f1 (insertn S r n)⊢r
+  simp [h]
+  apply subset_trans nh
+  apply Set.subset_insert
+  simp [h]
+  apply subset_trans nh
+  apply Set.subset_insert
+  simp [h]
+  assumption
+
+lemma prime_prf_disj_self {Γ : Set (Formula σ)} {p: Formula σ}(h:prime Γ r ⊢ p ∨ᵢ p) :
+  ∃ n, p ∈ (insertn (primen Γ r n) r ((@Encodable.encode (Formula σ) _ (p ∨ᵢ p))+1)) :=by
+  generalize eq : (@Encodable.encode (Formula σ) _ (p ∨ᵢ p)) = nn
+  rcases primen_sub_prf h with ⟨n,ch⟩
+  use n
+  unfold insertn
+  unfold insert_code
+  simp
+  rw [← eq]
+  rw [Encodable.encodek  (p ∨ᵢ p)]
+  rw [eq]
+  simp
+  suffices hc:insertn (primen Γ r n) r nn⊢p∨ᵢp
+  simp [hc]
+  have tz:= insert_subset1 (primen Γ r n) r nn
+  have tt:= cond_mono_proof2 ch (insertn (primen Γ r n) r nn)
+  rw [Set.union_eq_self_of_subset_left] at tt
+  exact tt
+  exact tz
+
+def prime_consq_iff_mem  {Γ :Set (Formula σ)}{p r: Formula σ} :
+  (p ∈ prime Γ r) ↔ (prime Γ r ⊢ p):= by
+  constructor
+  intro h
+  exact Proof.ref h
+  intro h
+  have h:= primen_sub_prf h
+  rcases h with ⟨_,_⟩
+  simp
+  have hz:=Proof.introO1 _ p _ h
+  have hzz:= prime_prf_disj_self hz
+  rcases hzz with ⟨i,hi⟩
+  generalize eq : (@Encodable.encode (Formula σ) _ (p∨ᵢp)) = nn
+  rw [eq] at hi
+  have z:= @insertn_sub_primen σ Γ r i (nn+1)
+  use i+1
+  exact z hi
+
+def primen_not_prfn {Γ :  set form} {r : form} {n} :
+  (primen Γ r n ⊢ᵢ r) → (Γ ⊢ᵢ r) :=
 
 
 
 
 
--- def prime_consq_iff_mem  {Γ :Set (Formula σ)}{p r: Formula σ} :
--- (p ∈ prime Γ r) ↔ (prime Γ r ⊢ p)   := by
--- constructor
--- intro h
--- apply Proof.ref h
--- intro h
--- unfold prime at h
--- by_contra hn
--- simp at hn
-
-
-
--- def primen_sub_prf {Γ :Set (Formula σ)}{p r: Formula σ} :
---   (prime Γ r ⊢ p) → ∃ n, primen Γ r n ⊢ p := by
---   generalize eq : prime Γ r = Γ'
---   intro h
---   induction h
---   subst eq
-
---   · rename_i A h_h
---     rcases (in_prime_in_primen h_h) with ⟨n,hpq⟩
---     use n
---     exact Proof.ref hpq
---   · rename_i A B Δ h1 h2
---     have l1:= Proof.introI _ _ _ h1
---     rw [← eq] at l1
---     by_cases A ∈ Δ
---     have eq2 : Δ ∪ {A} = Δ := by simp;assumption
---     rw [eq2] at h2
---     have z:= h2 eq
---     sorry
---     rw [← eq] at h
---     simp at h
---     have eq3:= primen_sub_prf h1
 
 
 
