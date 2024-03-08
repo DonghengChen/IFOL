@@ -19,6 +19,8 @@ is_closed Γ ∧ has_disj Γ
 def insert_form (Γ : Set (Formula σ)) (p q r: Formula σ):Set (Formula σ) :=
 if ((Γ∪{p})⊢ r) then Γ∪{q} else Γ∪{p}
 
+
+
 @[simp]
 def insert_code (Γ: Set (Formula σ))(r: Formula σ)(n:Nat): Set (Formula σ):=
 match @Encodable.decode (Formula σ) _ n with
@@ -26,6 +28,12 @@ match @Encodable.decode (Formula σ) _ n with
   | f1 ∨ᵢ f2 => if Γ ⊢ f1 ∨ᵢ f2 then insert_form Γ f1 f2 r else Γ
   | _ => Γ
 | none =>Γ
+
+
+
+
+
+
 
 @[simp]
 def insertn (Γ: Set (Formula σ))(r: Formula σ):Nat → Set (Formula σ)
@@ -41,9 +49,7 @@ def primen (Γ :Set (Formula σ))(r: Formula σ):Nat → Set (Formula σ)
 def prime (Γ :Set (Formula σ))(r: Formula σ): Set (Formula σ):=
 ⋃ n, primen Γ r n
 
-lemma subss {α: Type}{a:α}{A B: Set α}(h1: a ∈ A)(h2: A ⊆ B): a ∈ B := by
-apply h2
-assumption
+lemma subss {α: Type}{a:α}{A B: Set α}(h1: a ∈ A)(h2: A ⊆ B): a ∈ B := h2 h1
 
 lemma subset_insert_code {Γ :Set (Formula σ)}{r: Formula σ}(n) :  Γ ⊆ insert_code Γ r n :=by
  intro v hv
@@ -156,73 +162,16 @@ lemma insertn_mono {Γ :Set (Formula σ)}{r: Formula σ} {n m : Nat}(h : n ≤ m
 
 lemma cond_mono_proof {Γ :Set (Formula σ)}{r: Formula σ}(h: Γ ⊢ r): ∀ Q: Set (Formula σ), (Q ∪ Γ) ⊢ r :=by
 intro Q
-induction h with
-| ref ha =>apply Proof.ref;apply subss ha;simp
-| introI A B h2 _ h3=>
-  apply Proof.introI
-  rw [Set.union_assoc]
-  exact h3
-| elimI A B Δ h1 _ _ h3 h4=>
-  have h:= Proof.elimI _ _ _ _ h3 h4
-  rw [Set.union_assoc,← Set.union_assoc Δ Q h1,Set.union_comm Δ Q,Set.union_assoc,← Set.union_assoc,Set.union_self] at h
-  exact h
-| introA A B f g _ _ h3 h4=>
-  have h:= Proof.introA _ _ _ _  h3 h4
-  rw [Set.union_assoc,Set.union_comm A _,Set.union_assoc,← Set.union_assoc,Set.union_self,Set.union_comm B A] at h
-  exact h
-| elimA1 A B Δ _ g=>
-  apply Proof.elimA1 _ _ _ g
-| elimA2 A B Δ _ g=>
-  apply Proof.elimA2 _ _ _ g
-| introO1 A B f _ h1=>
-  apply Proof.introO1 _ _ _ h1
-| introO2 A B f _ h1=>
-  apply Proof.introO2 _ _ _ h1
-| elimO A B Δ f g h1 _ _ _ h5 h6 h7=>
-  rw [←  Set.union_assoc] at h6
-  rw [←  Set.union_assoc] at h7
-  have h:= Proof.elimO A B Δ _ _ _ h5 h6 h7
-  have zq:Q ∪ f ∪ (Q ∪ g) ∪ (Q ∪ h1)=Q ∪ (f ∪ g ∪ h1):=by
-    rw[Set.union_assoc,Set.union_assoc,Set.union_assoc,← Set.union_assoc g Q _,Set.union_comm g Q]
-    rw[Set.union_assoc Q g h1,← Set.union_assoc Q Q _,Set.union_self]
-    rw[← Set.union_assoc Q f _,Set.union_comm Q f,Set.union_assoc f Q _,← Set.union_assoc Q Q _,Set.union_self]
-    rw[← Set.union_assoc,Set.union_comm f Q,Set.union_assoc Q f _,Set.union_assoc]
-  rw [zq] at h
-  exact h
-| introN A h1 P S _ _ h4 h5=>
-  rw [←  Set.union_assoc] at h4
-  rw [←  Set.union_assoc] at h5
-  have hz:= Proof.introN _ _ _ _ h4 h5
-  rw [Set.union_assoc,← Set.union_assoc P Q S,Set.union_comm P _, ← Set.union_assoc, ← Set.union_assoc,Set.union_self] at hz
-  rw [Set.union_assoc] at hz
-  exact hz
-| ine A h1 P _ _ h3 h4 =>
-  apply Proof.ine _ _ _ h3 h4
-| introF A h1 P S h2 _ =>
-  have Z:= Proof.introF _ _ _ S h2
-  by_cases Q = ∅
-  rw [h]
-  rw [Set.union_comm ,Set.union_empty]
-  exact Z
-  have h: Q ≠ ∅ := by simp [h]
-  have h:=Set.nonempty_iff_ne_empty.mpr h
-  have h:=Set.nonempty_def.mp h
-  cases h
-  rename_i f hf
-  have t:= Proof.ref hf
-  have tt:= Proof.introA _ _ _ _ t Z
-  exact Proof.elimA2 _ _ _ tt
-| elimF A h1 P _ h2 =>
-  apply Proof.elimF _ _ _ h2
-| introE A h1 P S _ h3 =>
-  apply Proof.introE _ _ _ _ h3
-| elimE A h1 P S _ h3 h4 h5 h6 h7 =>
-  rename_i τ
-  rw [←  Set.union_assoc] at h7
-  have z:= Proof.elimE A h1 (Q ∪ P) (Q ∪ S) τ h3  h6 h7
-  rw [Set.union_assoc,← Set.union_assoc P Q S,Set.union_comm P _, ← Set.union_assoc, ← Set.union_assoc,Set.union_self] at z
-  rw [Set.union_assoc] at z
-  exact z
+by_cases h0:Q=∅
+rw [h0];simp;exact h
+have h1:=Set.nonempty_iff_ne_empty.mpr h0
+have h1:=Set.nonempty_def.mp h1
+rcases h1 with ⟨f,hf⟩
+have h2:= Proof.ref hf
+have h3:= Proof.introA _ _ _ _ h2 h
+rw [Set.union_comm Q Γ]
+rw[Set.union_comm Γ Q]
+apply Proof.elimA2 _ _ _ h3
 
 lemma cond_mono_proof2 {Γ :Set (Formula σ)}{r: Formula σ}(h: Γ ⊢ r): ∀ Q: Set (Formula σ), (Γ ∪ Q) ⊢ r :=by
 intro Q
@@ -230,6 +179,53 @@ rw [Set.union_comm]
 apply cond_mono_proof
 assumption
 
+lemma subset_proof {Γ :Set (Formula σ)}{r: Formula σ}(h: Γ ⊢ r)(h2: Γ ⊆ Γ'): (Γ' ⊢ r) :=by
+have z:= cond_mono_proof h Γ'
+rw [Set.union_eq_self_of_subset_right] at z
+exact z
+assumption
+
+lemma v_insert_code {σ : Signature}(Γ: Set (Formula σ))(p q f r: Formula σ)(eq: f =(p∨ᵢq)){n:ℕ}(hn: Γ ⊢ f)(h:n=@Encodable.encode (Formula σ) _ f):  ((insert_code Γ r n) ⊢ p) ∨ ((insert_code Γ r n) ⊢ q) :=by
+simp
+have hi: @Encodable.decode (Formula σ) _ n = f :=by  rw [h];rw [Encodable.encodek f]
+rw [hi,eq]
+simp
+rw [eq] at hn
+simp [hn]
+by_cases h2:insert p Γ⊢r
+simp[h2]
+right;apply Proof.ref;simp
+simp[h2]
+left;apply Proof.ref;simp
+
+lemma v_insertn {σ : Signature}(Γ: Set (Formula σ))(p q f r: Formula σ)(eq: f =(p∨ᵢq)){n:ℕ}(hn: Γ ⊢ f)(h:n=@Encodable.encode (Formula σ) _ f):
+((insertn Γ r (n+1)) ⊢ p) ∨ ((insertn Γ r (n+1)) ⊢ q):=by
+unfold insertn
+have z: Nat.add n 0 = n := by simp
+rw [z]
+apply v_insert_code
+exact eq
+apply subset_proof hn
+exact subset_insertn n
+exact h
+
+
+--primen Γ r n⊢p∨ᵢq
+lemma v_prime {σ : Signature}{Γ: Set (Formula σ)}{p q r: Formula σ}{n:ℕ}(h:primen Γ r n⊢p∨ᵢq):
+((primen Γ r (n+1)) ⊢ p) ∨ ((primen Γ r (n+1)) ⊢ q):=by
+unfold primen
+have z: Nat.add n 1 = n+1 := by simp
+have z2: Nat.add n 0 = n := by simp
+rw [z2]
+generalize eq:(p∨ᵢq)=f
+have req:=eq.symm
+rw [eq] at h
+let nn:=@Encodable.encode (Formula σ) _ f
+have tz:nn=@Encodable.encode (Formula σ) _ f:=by dsimp
+have z3:=v_insertn (primen Γ r n) p q f r req h tz
+cases z3 with
+| inl hl=>left; apply subset_proof hl;intro x v;simp;use nn+1;
+| inr hl=>right; apply subset_proof hl;intro x v;simp;use nn+1;
 
 
 
@@ -484,6 +480,7 @@ def primen_sub_prf {Γ :Set (Formula σ)}{p r: Formula σ} :
   linarith
 
 
+
 lemma insert_subset1{σ : Signature}(S:Set (Formula σ) )(r: Formula σ )(nn:Nat) :S ⊆ insertn S r nn:= by
   induction nn
   simp
@@ -552,8 +549,146 @@ def prime_consq_iff_mem  {Γ :Set (Formula σ)}{p r: Formula σ} :
   use i+1
   exact z hi
 
-def primen_not_prfn {Γ :  set form} {r : form} {n} :
-  (primen Γ r n ⊢ᵢ r) → (Γ ⊢ᵢ r) :=
+lemma ind(n:Nat): n=0 ∨ ∃ m, n=m+1 := by
+  cases n
+  simp
+  right
+  rename_i q
+  use q
+
+lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat} :
+  (insertn Γ p i ⊢ p) → (Γ ⊢ p) :=by
+  induction i
+  simp
+  rename_i ni nh
+  simp
+  cases (@Encodable.decode (Formula σ) instEncodableFormula ni : Option (Formula σ))
+  simp
+  assumption
+  rename_i val
+  simp
+  cases val
+  <;>simp<;> try assumption
+  rename_i f1 f2
+  by_cases insertn Γ p ni⊢f1∨ᵢf2
+  simp[h]
+  by_cases insert f1 (insertn Γ p ni)⊢p
+  simp [h]
+  rename_i h2
+  intro hf
+  generalize eq : (insertn Γ p ni) = S
+  rw [eq] at h2 h hf
+  apply nh
+  rw [eq]
+  have t1: insert f2 S = S ∪ {f2} := by simp
+  have t2: insert f1 S = S ∪ {f1} := by simp
+  rw [t1] at hf
+  rw [t2] at h
+  have rz:= Proof.elimO _ _ _ _ _ _ h2 h hf
+  rw [Set.union_eq_self_of_subset_right] at rz
+  rw [Set.union_eq_self_of_subset_left] at rz
+  exact rz
+  rfl
+  rw [Set.union_eq_self_of_subset_right]
+  rfl
+  by_cases insert f1 (insertn Γ p ni)⊢p
+  simp [h]
+  rename_i h2
+  have t:=h2 h
+  apply False.elim t
+  simp [h]
+  intro x
+  simp [h] at x
+  exact nh x
+
+lemma prf_primen_prf_insertn {Γ :  Set (Formula σ)} {p r : Formula σ} {n:Nat} :
+  (primen Γ r (n+1) ⊢ p) → ∃ i, insertn (primen Γ r n) r i ⊢ p := by
+  generalize eq : primen Γ r (n+1) = Γ'
+  subst eq
+  intro h
+  have hh:= Finset_proof h
+  rcases hh with ⟨Γ',h1,h2,h3⟩
+  unfold primen at h1
+  simp at h1
+  have dq:∃ (I : Set ℕ), Set.Finite I ∧ Γ' ⊆ ⋃ i ∈ I, insertn (primen Γ r n) r i := by
+    apply Set.finite_subset_iUnion
+    assumption
+    exact h1
+  rcases dq with ⟨I,h4,h5⟩
+  by_cases I = ∅
+  simp [h] at h5
+  have h5:Γ' = ∅ := by apply Set.subset_eq_empty h5;rfl
+  simp [h5] at h2
+  use 0
+  have h6:= cond_mono_proof h2 (insertn (primen Γ r n) r 0)
+  simp
+  simp at h6
+  exact h6
+  have h7: I ≠ ∅ := by simp [h]
+  have dp:=Set.Finite.exists_maximal_wrt (λ x=>x) I h4 (Set.nonempty_iff_ne_empty.mpr h7)
+  simp at dp
+  rcases dp with ⟨i,_,hn2⟩
+  use i
+  suffices hz:Γ' ⊆ insertn (primen Γ r n) r i
+  have hz2: (insertn (primen Γ r n) r i ∪ Γ') ⊢ p := cond_mono_proof h2 _
+  rw [Set.union_eq_self_of_subset_right] at hz2
+  exact hz2
+  exact hz
+  apply subset_trans h5
+  simp
+  intro ii hi
+  suffices hq:ii<= i
+  exact insertn_mono hq
+  by_cases ii ≤ i
+  assumption
+  have ht: i<=ii:= by linarith
+  have hq:= hn2 ii hi ht
+  linarith
+
+def prime_has_disj {Γ :   Set (Formula σ)} {p q r : Formula σ} :((p ∨ᵢ q) ∈ prime Γ r) → p ∈ prime Γ r ∨ q ∈ prime Γ r :=by
+intro h0
+have h1:=prime_consq_iff_mem.mp h0
+have h2:=primen_sub_prf h1
+rcases h2 with ⟨n,hn⟩
+have h4:=v_prime hn
+cases h4 with
+| inl hz=>left;apply prime_consq_iff_mem.mpr;apply subset_proof hz;unfold prime;intro x v;simp;use n+1
+| inr hz=>right;apply prime_consq_iff_mem.mpr;apply subset_proof hz;unfold prime;intro x v;simp;use n+1
+
+
+
+def primen_not_prfn {Γ :  Set (Formula σ)} {r: Formula σ} {n : Nat} :
+  (primen Γ r n ⊢ r) → (Γ ⊢ r) := by
+  intro h
+  induction n
+  simp at h
+  exact h
+
+  rename_i n nh
+  cases prf_primen_prf_insertn h
+  rename_i i hi
+  apply nh
+  apply insertn_prf hi
+
+def prime_not_prf {Γ :  Set (Formula σ)} {r : Formula σ} :
+  (prime Γ r ⊢ r) → (Γ ⊢ r) :=by
+  intro h
+  cases primen_sub_prf h
+  rename_i n nh
+  apply primen_not_prfn nh
+
+
+
+lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
+ is_prime (prime Γ r) :=by
+    constructor
+    intro f
+    apply prime_consq_iff_mem.mpr
+    intro p q
+    apply prime_has_disj
+
+
+
 
 
 
