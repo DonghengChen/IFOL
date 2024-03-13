@@ -689,6 +689,9 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
 
 
 
+lemma prime_no_prf {Γ :  Set (Formula σ)} {r : Formula σ} (h : ¬ (Γ ⊢ r)) :
+ ¬ (prime Γ r ⊢ r) :=
+λ hm=> h (prime_not_prf hm)
 
 
 
