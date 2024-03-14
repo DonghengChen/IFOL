@@ -12,8 +12,11 @@ def is_closed (Γ : Set (Formula σ)):=
 def has_disj (Γ : Set (Formula σ)):=
 ∀ (f g : Formula σ),((f ∨ᵢ g) ∈ Γ) → ((f ∈ Γ) ∨ (g ∈ Γ))
 
+def has_const (Γ : Set (Formula σ)):=
+∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(c:Constant),(f.Substitution (Term.free (free_variable.free_variable 0)) (Term.const c)).down 1 0 ∈ Γ)
+
 def is_prime (Γ : Set (Formula σ)):=
-is_closed Γ ∧ has_disj Γ
+is_closed Γ ∧ has_disj Γ ∧ has_const Γ
 
 @[simp]
 def insert_form (Γ : Set (Formula σ)) (p q r: Formula σ):Set (Formula σ) :=
@@ -684,28 +687,14 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
     constructor
     intro f
     apply prime_consq_iff_mem.mpr
-    intro p q
+    constructor
+    intro h hx hp
     apply prime_has_disj
+    exact hp
+    sorry
 
 
 
 lemma prime_no_prf {Γ :  Set (Formula σ)} {r : Formula σ} (h : ¬ (Γ ⊢ r)) :
  ¬ (prime Γ r ⊢ r) :=
 λ hm=> h (prime_not_prf hm)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  -- repeat (first |  apply Proof.introI | apply Proof.elimI| apply Proof.introA | apply Proof.elimA1 | apply Proof.elimA2 | apply Proof.introO1| apply Proof.introO2 | apply Proof.elimO | apply Proof.introN| apply Proof.ine| apply Proof.introF| apply Proof.elimF| apply Proof.introE| apply Proof.elimE )

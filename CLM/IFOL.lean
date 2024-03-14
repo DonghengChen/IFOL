@@ -101,11 +101,11 @@ def Term.Substitution (src m e: Term σ) : Term σ :=
 --   | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => max (depth f1) (depth f2)
 --   | _ => 0
 
--- @[simp]
--- def Formula.size : Formula σ → Nat
---   | atomic_formula .. | ⊥ => 0
---   | ¬ᵢ f | ∃ᵢ f | ∀ᵢ f => f.size + 1
---   | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => f1.size + f2.size +1
+@[simp]
+def Formula.size : Formula σ → Nat
+  | atomic_formula .. | ⊥ => 0
+  | ¬ᵢ f | ∃ᵢ f | ∀ᵢ f => f.size + 1
+  | f1 ∧ᵢ f2 | f1 ∨ᵢ f2 | f1 →ᵢ f2 => f1.size + f2.size +1
 
 
 
@@ -132,9 +132,17 @@ def Formula.Substitution (f : Formula σ) (m e: Term σ): Formula σ :=
     | f1 →ᵢ f2 =>  (f1.Substitution  (.free t) e ) →ᵢ  (f2.Substitution  (.free t) e )
 
 
--- @[simp]
--- theorem size_of_substit_eq_size {f : Formula σ} : ∀ m e, (f.Substitution m e).size = f.size := by
---   induction f <;> (intro m e;cases m) <;> first | rfl | simp; aesop
+@[simp]
+theorem size_of_substit_eq_size {f : Formula σ} : ∀ m e, (f.Substitution m e).size = f.size := by
+  induction f <;> (intro m e;cases m) <;> first | rfl | simp; aesop
+
+@[simp]
+theorem size_of_down_eq_size {f : Formula σ} : ∀ i c, (f.down i c).size = f.size := by
+  induction f <;> (intro m e;cases m) <;> first | rfl | simp; aesop
+
+@[simp]
+theorem size_of_lift_eq_size {f : Formula σ} : ∀ i c, (f.lift i c).size = f.size := by
+  induction f <;> (intro m e;cases m) <;> first | rfl | simp; aesop
 
 
 def Term.free_variables {σ : Signature}(t: Term σ)(bound : Nat) : Set (Term σ) :=
