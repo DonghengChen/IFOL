@@ -6,6 +6,7 @@ open Set
 open Classical
 
 
+
 def is_closed (Γ : Set (Formula σ)):=
 ∀ (f : Formula σ), (Γ ⊢ f) → (f ∈ Γ)
 
@@ -13,7 +14,7 @@ def has_disj (Γ : Set (Formula σ)):=
 ∀ (f g : Formula σ),((f ∨ᵢ g) ∈ Γ) → ((f ∈ Γ) ∨ (g ∈ Γ))
 
 def has_const (Γ : Set (Formula σ)):=
-∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(c:Constant),(f.Substitution (Term.free (free_variable.free_variable 0)) (Term.const c)).down 1 0 ∈ Γ)
+∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(c:ℕ),(f.Substitution (Term.free 0) (Term.const c)).down 0 ∈ Γ)
 
 def is_prime (Γ : Set (Formula σ)):=
 is_closed Γ ∧ has_disj Γ ∧ has_const Γ
@@ -23,7 +24,6 @@ def insert_form (Γ : Set (Formula σ)) (p q r: Formula σ):Set (Formula σ) :=
 if ((Γ∪{p})⊢ r) then Γ∪{q} else Γ∪{p}
 
 
-
 @[simp]
 def insert_code (Γ: Set (Formula σ))(r: Formula σ)(n:Nat): Set (Formula σ):=
 match @Encodable.decode (Formula σ) _ n with
@@ -31,11 +31,6 @@ match @Encodable.decode (Formula σ) _ n with
   | f1 ∨ᵢ f2 => if Γ ⊢ f1 ∨ᵢ f2 then insert_form Γ f1 f2 r else Γ
   | _ => Γ
 | none =>Γ
-
-
-
-
-
 
 
 @[simp]
@@ -78,7 +73,6 @@ lemma subset_insert_code {Γ :Set (Formula σ)}{r: Formula σ}(n) :  Γ ⊆ inse
  · simp;assumption
  · simp;assumption
  · simp;assumption
- · simp;assumption
 
 
 lemma primen_subset_prime {Γ :Set (Formula σ)}{r: Formula σ}(n) :primen Γ r n ⊆ prime Γ r :=by
@@ -115,7 +109,6 @@ induction n
     assumption
     simp [h]
     assumption
-  · simp;assumption
   · simp;assumption
   · simp;assumption
   · simp;assumption
@@ -171,10 +164,10 @@ have h1:=Set.nonempty_iff_ne_empty.mpr h0
 have h1:=Set.nonempty_def.mp h1
 rcases h1 with ⟨f,hf⟩
 have h2:= Proof.ref hf
-have h3:= Proof.introA _ _ _ _ h2 h
+have h3:= Proof.introA  h2 h
 rw [Set.union_comm Q Γ]
 rw[Set.union_comm Γ Q]
-apply Proof.elimA2 _ _ _ h3
+apply Proof.elimA2 h3
 
 lemma cond_mono_proof2 {Γ :Set (Formula σ)}{r: Formula σ}(h: Γ ⊢ r): ∀ Q: Set (Formula σ), (Γ ∪ Q) ⊢ r :=by
 intro Q
@@ -217,7 +210,6 @@ exact h
 lemma v_prime {σ : Signature}{Γ: Set (Formula σ)}{p q r: Formula σ}{n:ℕ}(h:primen Γ r n⊢p∨ᵢq):
 ((primen Γ r (n+1)) ⊢ p) ∨ ((primen Γ r (n+1)) ⊢ q):=by
 unfold primen
-have z: Nat.add n 1 = n+1 := by simp
 have z2: Nat.add n 0 = n := by simp
 rw [z2]
 generalize eq:(p∨ᵢq)=f
@@ -236,12 +228,13 @@ cases z3 with
 lemma Finset_proof {Γ :Set (Formula σ)}{r: Formula σ}(h: Γ ⊢ r):∃ (Γ':Set (Formula σ)),(Γ' ⊆ Γ) ∧ (Γ' ⊢ r) ∧ (Γ'.Finite):=by
 induction h with
 | ref ha =>rename_i f Q;use {f};simp;constructor;trivial;constructor;simp
-| introI A B h2 _ h3=>
-  rcases h3 with ⟨Γ',h0,h1,h4⟩
-  use Γ'\{A}
+| introI A B =>
+  rename_i s t v
+  rcases B with ⟨Γ',h0,h1,h4⟩
+  use Γ'\{s}
   constructor;
   rw [Set.diff_subset_iff]
-  have utran: (h2 ∪ {A})=({A} ∪ h2) := by simp
+  have utran: (v ∪ {s})=({s} ∪ v) := by simp
   rw [utran] at h0
   exact h0
   constructor;
@@ -251,63 +244,65 @@ induction h with
   exact h1
   apply Set.Finite.diff
   assumption
-| elimI A B Δ h1 _ _ h3 h4=>
+| elimI  _ _ h3 h4=>
+  rename_i h1 h2
   rcases h3 with ⟨Γ',h11,h12,h13⟩
   rcases h4 with ⟨Γ'',h5,h6,h7⟩
   use Γ' ∪ Γ''
   constructor;
   rw [Set.union_subset_iff]
-  constructor; exact subset_union_of_subset_left h11 h1; exact subset_union_of_subset_right h5 Δ
+  constructor; exact subset_union_of_subset_left h11 _; exact subset_union_of_subset_right h5 _
   constructor;
-  apply Proof.elimI _ _ _ _ h12 h6
+  apply Proof.elimI h12 h6
   apply Set.Finite.union
   assumption
   assumption
-| introA A B f g _ _ h3 h4=>
+| introA  _ _ h3 h4=>
   rcases h3 with ⟨Γ',h11,h12,h13⟩
   rcases h4 with ⟨Γ'',h5,h6,h7⟩
   use Γ' ∪ Γ''
   constructor;
   rw [Set.union_subset_iff]
-  constructor; exact subset_union_of_subset_left h11 B; exact subset_union_of_subset_right h5 A
+  constructor; exact subset_union_of_subset_left h11 _; exact subset_union_of_subset_right h5 _
   constructor;
-  apply Proof.introA _ _ _ _ h12 h6
+  apply Proof.introA h12 h6
   apply Set.Finite.union
   assumption
   assumption
-| elimA1 A B Δ _ g=>
+| elimA1  _ g=>
   rcases g with ⟨Γ',h1,h2,h3⟩
   use Γ'
   constructor;
   assumption
   constructor;
-  apply Proof.elimA1 _ _ _ h2
+  apply Proof.elimA1  h2
   assumption
-| elimA2 A B Δ _ g=>
+| elimA2  _ g=>
   rcases g with ⟨Γ',h1,h2,h3⟩
   use Γ'
   constructor;
   assumption
   constructor;
-  apply Proof.elimA2 _ _ _ h2
+  apply Proof.elimA2  h2
   assumption
-| introO1 A B f _ h1=>
-  rcases h1 with ⟨Γ',h2,h3,h4⟩
+| introO1  _ _ h2=>
+  rcases h2 with ⟨Γ',h2,h3,h4⟩
   use Γ'
   constructor;
   assumption
   constructor;
-  apply Proof.introO1 _ _ _ h3
+  apply Proof.introO1 _ h3
   assumption
-| introO2 A B f _ h1=>
-  rcases h1 with ⟨Γ',h2,h3,h4⟩
+| introO2  _ _ h2=>
+  rcases h2 with ⟨Γ',h2,h3,h4⟩
   use Γ'
   constructor;
   assumption
   constructor;
-  apply Proof.introO2 _ _ _ h3
+  apply Proof.introO2 _ h3
   assumption
-| elimO A B Δ f g h1 _ _ _ h5 h6 h7=>
+| elimO  _ _ _ h5 h6 h7=>
+  rename_i A B Δ f g h1 h2 h3 h4
   rcases h6 with ⟨Γ',h61,h62,h63⟩
   rcases h7 with ⟨Γ'',h71,h72,h73⟩
   rcases h5 with ⟨Γ''',h51,h52,h53⟩
@@ -337,43 +332,9 @@ induction h with
   apply Finite.diff
   assumption
   assumption
-| introN A h1 P S _ _ h4 h5=>
-  rcases h4 with ⟨Γ',h41,h42,h43⟩
-  rcases h5 with ⟨Γ'',h51,h52,h53⟩
-  use ((Γ' \ {A}) ∪ (Γ'' \ {A}))
-  constructor;
-  rw [Set.union_subset_iff]
-  constructor; apply subset_union_of_subset_left; apply diff_subset_iff.mpr;rw [Set.union_comm]; exact h41;
-  apply subset_union_of_subset_right; apply diff_subset_iff.mpr;rw [Set.union_comm]; exact h51
-  constructor;
-  apply Proof.introN
-  rw [Set.diff_union_self]
-  apply cond_mono_proof2 h42
-  rw [Set.diff_union_self]
-  apply cond_mono_proof2 h52
-  apply Finite.union
-  apply Finite.diff
-  assumption
-  apply Finite.diff
-  assumption
-| ine A h1 P _ _ h3 h4 =>
-  rcases h4 with ⟨Γ',h41,h42,h43⟩
-  rcases h3 with ⟨Γ'',h51,h52,h53⟩
-  use Γ' ∪ Γ''
-  constructor;
-  rw [Set.union_subset_iff]
-  constructor; assumption; assumption
-  constructor;
-  rw [Set.union_comm]
-  have h42:= cond_mono_proof2 h42 Γ''
-  rw [Set.union_comm] at h42
-  have h52:= cond_mono_proof2 h52 Γ'
-  exact Proof.ine _ h1 _ h52 h42
-  apply Finite.union
-  assumption
-  assumption
-| introF A h1 P _ h2 h3 =>
-  rcases h3 with ⟨Γ',h31,h32,h33⟩
+| introF _ h1 P =>
+  rename_i f S tt
+  rcases P with ⟨Γ',h31,h32,h33⟩
   use Γ'
   constructor;
   assumption
@@ -381,9 +342,9 @@ induction h with
   apply Proof.introF
   assumption
   intro t
-  unfold free_variables at h2
-  apply h2
-  unfold free_variables at t
+  unfold free_terms at t
+  apply h1
+  unfold free_terms at h1
   apply Set.mem_iUnion.mpr
   have tt:= Set.mem_iUnion.mp t
   rcases tt with ⟨f,hf⟩
@@ -395,7 +356,17 @@ induction h with
   exact hf.left
   exact hf.right
   assumption
-| elimF A S P _ h2 =>
+| botE A h1 P =>
+  rename_i Q
+  cases P
+  rename_i h3 h4
+  use h3
+  constructor;exact h4.left;constructor
+  apply Proof.botE
+  exact h4.right.left
+  exact h4.right.right
+
+| elimF A _ h2  =>
   rcases h2 with ⟨Γ',h31,h32,h33⟩
   use Γ'
   constructor;
@@ -404,8 +375,8 @@ induction h with
   apply Proof.elimF
   assumption
   assumption
-| introE A h1 P S _ h3=>
-  rcases h3 with ⟨Γ',h31,h32,h33⟩
+| introE _ h1 =>
+  rcases h1 with ⟨Γ',h31,h32,h33⟩
   use Γ'
   constructor;
   assumption
@@ -413,12 +384,12 @@ induction h with
   apply Proof.introE
   assumption
   assumption
-| elimE A h1 P S h2 h3 h4 h5 h6 h7 =>
-  rename_i τ
-  rcases h7 with ⟨Γ',h71,h72,h73⟩
-  rcases h6 with ⟨Γ'',h61,h62,h63⟩
-  generalize eq : IFOL.Formula.Substitution A (Term.free h3) τ = z
-  rw [eq] at h5
+| elimE A h1 P S h2 h3 =>
+  rename_i Q B C D E
+  rcases h3 with ⟨Γ',h71,h72,h73⟩
+  rcases h2 with ⟨Γ'',h61,h62,h63⟩
+  generalize eq : Formula.down 0 (Formula.Substitution Q (Term.free 0) E) = z
+  rw [eq] at h1
   rw [eq] at h71
   use (Γ'\{z}) ∪ Γ''
   constructor;
@@ -428,11 +399,18 @@ induction h with
   constructor;
   rw [Set.union_comm]
   apply Proof.elimE
-  exact τ
   exact h62
   rw [eq]
   rw [Set.diff_union_self]
   apply cond_mono_proof2 h72
+  simp [free_terms] at P
+  simp [free_terms]
+  intro x hx hxx
+  apply P
+  have s:= h71 hx
+  simp [hxx] at s
+  exact s
+  assumption
   apply Finite.union
   apply Finite.diff
   assumption
@@ -543,7 +521,7 @@ def prime_consq_iff_mem  {Γ :Set (Formula σ)}{p r: Formula σ} :
   have h:= primen_sub_prf h
   rcases h with ⟨_,_⟩
   simp
-  have hz:=Proof.introO1 _ p _ h
+  have hz:=Proof.introO1 p h
   have hzz:= prime_prf_disj_self hz
   rcases hzz with ⟨i,hi⟩
   generalize eq : (@Encodable.encode (Formula σ) _ (p∨ᵢp)) = nn
@@ -587,7 +565,7 @@ lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat} :
   have t2: insert f1 S = S ∪ {f1} := by simp
   rw [t1] at hf
   rw [t2] at h
-  have rz:= Proof.elimO _ _ _ _ _ _ h2 h hf
+  have rz:= Proof.elimO h2 h hf
   rw [Set.union_eq_self_of_subset_right] at rz
   rw [Set.union_eq_self_of_subset_left] at rz
   exact rz

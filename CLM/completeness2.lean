@@ -76,7 +76,6 @@ lemma model_tt_iff_mem_p {w: Set (Formula σ)}(h0:w ∈ M.W )(n:Nat):
                 | disjunction f1 f2  => simp at hc
                 | implication f1 f2  => simp at hc
                 | negation f  => simp at hc
-                | bottom => simp at hc; sorry
                 | existential_quantification f  => simp at hc
                 | universal_quantification f  => simp at hc
   case succ n hn =>
@@ -172,7 +171,7 @@ lemma model_tt_iff_mem_p {w: Set (Formula σ)}(h0:w ∈ M.W )(n:Nat):
             unfold Formula.force_form
             have h:=(closed h0).mp h
             intro u hu hf1
-            
+            sorry
 
 
 
@@ -203,17 +202,6 @@ lemma model_tt_iff_mem_p {w: Set (Formula σ)}(h0:w ∈ M.W )(n:Nat):
 
 
 
-        | bottom => constructor
-                    intro h
-                    unfold Formula.force_form at h
-                    simp at h
-                    intro h
-                    unfold Formula.force_form
-                    simp at h0
-                    unfold worlds at h0
-                    have h1:=h0.left
-                    unfold is_consist at h1
-                    sorry
 
         | existential_quantification f =>
           constructor
@@ -253,16 +241,19 @@ lemma model_tt_iff_mem_p {w: Set (Formula σ)}(h0:w ∈ M.W )(n:Nat):
               simp at hc
               have hp2:n ≥ f.size:= by linarith
               have hp3:=hn f hp2
+              apply (closed h0).mpr
+              unfold Formula.force_form at h2
 
               sorry
               intro h4
               simp at hc
               have hp2:n ≥ f.size:= by linarith
-              have hp3:=hn f hp2
+              -- have hp3:=hn f hp2
               unfold Formula.force_form
               have h4:=(closed h0).mp h4
               intro t
-
+              have xterm:= @Encodable.decode (Term σ) _ t
+              
 
               sorry
 

@@ -15,18 +15,14 @@ private def arity: construct → Nat
 | (cconst _)  => 0
 
 def g{σ : Signature}: Term σ → Wfin arity:=
-fun term => by
-cases term with
-| free n => let m:= match n with
-                    | .free_variable v => v
-            exact ⟨cfree m, mk_fn0⟩
-| const n =>let m:= match n with
-                    | .Constant v => v
-            exact ⟨cconst m, mk_fn0⟩
+fun term => match term with
+| .free n => ⟨cfree n, mk_fn0⟩
+| .const n => ⟨cconst n, mk_fn0⟩
+
 
 private def decode0(σ : Signature) :Wfin arity → Term σ
-| ⟨cfree v, _⟩ => Term.free (free_variable.free_variable v)
-| ⟨cconst c, _⟩ => Term.const (Constant.Constant c)
+| ⟨cfree v, _⟩ => Term.free v
+| ⟨cconst c, _⟩ => Term.const c
 
 theorem iso0{σ : Signature}: ∀ t:Term σ , decode0 σ (g t) = t:= by
 intro term
