@@ -11,7 +11,7 @@ structure Signature where
 
 inductive Term (σ : Signature): Type
 | free : ℕ  → Term σ
-| const : ℕ → Term σ
+| const : ℕ → ℕ → Term σ -- n 0 batch=m
 
 inductive Formula (σ : Signature) : Type
   | atomic_formula : (r : ℕ ) → (Fin (σ.arity' r) → Term σ ) → Formula σ
@@ -35,12 +35,12 @@ notation "⊥" => Formula.bottom
 def Term.lift (c : Nat) : Term σ → Term σ -- lift one position
   | .free n => if n < c then Term.free n
     else free (n+1)
-  | .const n => const n
+  | .const n m=> const n m
 
 def Term.down (c : Nat) : Term σ → Term σ --down one position
   | .free n =>if n < c then free n
     else free (n-1)
-  | .const n => const n
+  | .const n m=> const n m
 
 def Formula.lift (c : Nat) : Formula σ → Formula σ
   | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).lift c)
@@ -63,7 +63,7 @@ def Formula.down (c : Nat) : Formula σ → Formula σ
 def Term.Substitution (src m e: Term σ) : Term σ :=
   match src,m with
   | .free n, .free n' =>if n=n' then e else src
-  | const n, const n' =>if n=n' then e else src
+  | const n m, const n' m' =>if (n=n') ∧ (m=m') then e else src
   | src    , _ => src
 
 
@@ -82,13 +82,13 @@ def Formula.size : Formula σ → Nat
 
 def Formula.Substitution (f : Formula σ) (m e: Term σ): Formula σ :=
   match m with
-  | .const t => match f with
-    | atomic_formula r ts => (# r) (fun q => (ts q).Substitution  (.const t) e)
-    | f1 ∧ᵢ f2 => (f1.Substitution (.const t) e ) ∧ᵢ (f2.Substitution (.const t) e )
-    | f1 ∨ᵢ f2 => (f1.Substitution (.const t) e ) ∨ᵢ (f2.Substitution (.const t) e )
-    | f1 →ᵢ f2 => (f1.Substitution (.const t) e ) →ᵢ (f2.Substitution (.const t) e )
-    | ∃ᵢ f  => ∃ᵢ (f.Substitution (.const t) e )
-    | ∀ᵢ f => ∀ᵢ (f.Substitution (.const t) e )
+  | .const t v => match f with
+    | atomic_formula r ts => (# r) (fun q => (ts q).Substitution  (.const t v) e)
+    | f1 ∧ᵢ f2 => (f1.Substitution (.const t v) e ) ∧ᵢ (f2.Substitution (.const t v) e )
+    | f1 ∨ᵢ f2 => (f1.Substitution (.const t v) e ) ∨ᵢ (f2.Substitution (.const t v) e )
+    | f1 →ᵢ f2 => (f1.Substitution (.const t v) e ) →ᵢ (f2.Substitution (.const t v) e )
+    | ∃ᵢ f  => ∃ᵢ (f.Substitution (.const t v) e )
+    | ∀ᵢ f => ∀ᵢ (f.Substitution (.const t v) e )
     | ⊥ => ⊥
   | .free t => match f with
     | atomic_formula r ts => (# r) (fun q => (ts q).Substitution (.free t) e)
@@ -116,7 +116,7 @@ theorem size_of_lift_eq_size {f : Formula σ} : ∀ c, (f.lift c).size = f.size 
 def Term.free_terms {σ : Signature}(t: Term σ)(bound : Nat) : Set (Term σ) :=
 match t with
 | free z =>  if z>= bound then {Term.free (z-bound)} else ∅
-| const z => {Term.const z}
+| const z y => {Term.const z y}
 
 def Formula.free_terms {σ : Signature}(f : Formula σ)(bound : Nat) : Set (Term σ) :=
 match f with
@@ -143,13 +143,13 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Prop
 | elimO   {A B C Γ Q G}: Proof Γ (A ∨ᵢ B) → Proof (G ∪ {A}) C → Proof (Q ∪ {B}) C → Proof (Γ ∪ Q ∪ G) C
 | botE {Γ}(A): Proof Γ ⊥ → Proof Γ A
 | introF {A: Formula σ}{Γ}{x} :
-Proof Γ A → x ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.lift 0).Substitution x (Term.free 0))
+Proof Γ A → x ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.lift 0).Substitution (Term.lift 0 x) (Term.free 0))
 | elimF  {A: Formula σ}{Γ}(τ: Term σ) :
-Proof Γ (∀ᵢ A) → Proof Γ ((A.Substitution (Term.free 0) τ).down 0)
+Proof Γ (∀ᵢ A) → Proof Γ ((A.Substitution (Term.free 0) (Term.lift 0 τ)).down 0)
 | introE {A : Formula σ}{Γ}{t: Term σ}{v : ℕ} :
-Proof Γ (A.Substitution (Term.free v) t)  → Proof Γ (∃ᵢ (A.lift 0).Substitution (Term.free v) (Term.free 0))
+Proof Γ (A.Substitution (Term.free v) t)  → Proof Γ (∃ᵢ (A.lift 0).Substitution (Term.lift 0 (Term.free v)) (Term.free 0))
 | elimE {A B: Formula σ}{Γ Q: Set (Formula σ)}{τ: Term σ}:
-Proof Γ (∃ᵢ A) → Proof (Q∪{(A.Substitution (Term.free 0) τ).down 0}) B →
+Proof Γ (∃ᵢ A) → Proof (Q∪{(A.Substitution (Term.free 0) (Term.lift 0 τ)).down 0}) B →
 τ ∉ (Set.free_terms Q) → τ ∉ (Formula.free_terms B 0)  →  Proof (Γ∪Q) B
 
 notation Γ "⊢" A => Proof Γ A
@@ -170,8 +170,8 @@ structure model (σ : Signature) where
   R_closed : (u v:world) →  R u v → (u ∈ W)  → (v ∈ W)
 
 def insert_value_function (M : model σ) (v : Term σ → M.A) (item : M.A) : Term σ → M.A --head insert from zero
-| .free n => if n=0 then item else v (.free (n+1))
-| .const z => v (.const z)
+| .free n => if n=0 then item else v (.free (n-1))
+| .const z y=> v (.const z y)
 
 def Formula.force_form (M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Term σ → M.A) : Formula σ  → Prop
 | atomic_formula r ts => M.α w r (fun index=> v (ts index))
