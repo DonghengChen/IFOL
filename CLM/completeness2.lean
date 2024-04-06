@@ -1,6 +1,6 @@
 import CLM.completeness
 import CLM.bijection
-import CLM.de_equations
+-- import CLM.de_equations
 open IFOL
 
 def is_consist(Γ :  Set (Formula σ)) :=  ¬ (Γ ⊢ ⊥)
@@ -31,7 +31,10 @@ def M {σ : Signature} : model (σ) where
     have h1:= huv.left hn
     exact h1
 
+
+
 def val0 {σ: Signature} (t: Term σ) : ℕ := ent t
+
 
 lemma closed{p : Formula σ}{w: Set (Formula σ)}(h0:w ∈ M.W ) :
   (p ∈ w) ↔ (w ⊢ p) := by
@@ -45,10 +48,12 @@ lemma closed{p : Formula σ}{w: Set (Formula σ)}(h0:w ∈ M.W ) :
     exact h
 
 
+
+
 lemma model_tt_iff_mem_p (n:Nat):
-  ∀w: Set (Formula σ),∀(p : Formula σ),(n≥p.size) → (h: w ∈ M.W)  → ((Formula.force_form M w h val0 p) ↔ (p ∈ w)) := by
+  ∀w: Set (Formula σ),∀(p : Formula σ),(n≥p.size) → (h: w ∈ M.W)  → ((Formula.force_form M w h val0 p) ↔ (w ⊢ p)) := by
+  induction n
   intro h0 p hc
-  induction n generalizing p
   case zero => simp at hc
                unfold Formula.size at hc
                cases p with
@@ -59,12 +64,14 @@ lemma model_tt_iff_mem_p (n:Nat):
                                         simp at hw
                                         unfold val0 at hw
                                         simp [de_bij] at hw
+                                        apply (closed h0).mp
                                         exact hw
                                         intro hp
                                         unfold Formula.force_form
                                         simp
                                         unfold val0
                                         simp [de_bij]
+                                        apply (closed h0).mpr
                                         exact hp
                 | conjunction f1 f2  => simp at hc
                 | disjunction f1 f2  => simp at hc
@@ -82,12 +89,13 @@ lemma model_tt_iff_mem_p (n:Nat):
                   unfold worlds at h0
                   have h1:=h0.left
                   apply h1
-                  apply Proof.ref h
+                  exact h
 
 
 
 
   case succ n hn =>
+        intro h0 p hc
         cases p with
         | bottom =>
           unfold Formula.force_form
@@ -99,7 +107,7 @@ lemma model_tt_iff_mem_p (n:Nat):
           unfold worlds at h0
           have h1:=h0.left
           apply h1
-          apply Proof.ref h
+          exact h
         | atomic_formula r ts=>
           intro h0
           constructor
@@ -108,36 +116,35 @@ lemma model_tt_iff_mem_p (n:Nat):
           simp at hw
           unfold val0 at hw
           simp [de_bij] at hw
+          apply (closed h0).mp
           exact hw
           intro hp
           unfold Formula.force_form
           simp
           unfold val0
           simp [de_bij]
+          apply (closed h0).mpr
           exact hp
 
         | conjunction f1 f2 =>
+
           simp at hc
           have h01:n ≥ f1.size:= by linarith
           have h02:n ≥ f2.size:= by linarith
-          have h1:=hn f1 h01
-          have h2:=hn f2 h02
+          have h1:=hn h0 f1 h01
+          have h2:=hn h0 f2 h02
           intro h0
           constructor
           intro h
           unfold Formula.force_form at h
-          have h1:=Proof.ref ((h1 h0).mp h.left)
-          have h2:=Proof.ref ((h2 h0).mp h.right)
-          apply (closed h0).mpr
+          have h1:= ((h1 h0).mp h.left)
+          have h2:= ((h2 h0).mp h.right)
           have h3:= Proof.introA h1 h2
           rw [Set.union_self] at h3
           exact h3
           intro h
-          have h:=(closed h0).mp h
           have h3:=Proof.elimA1 h
-          have h3:=(closed h0).mpr h3
           have h4:=Proof.elimA2 h
-          have h4:=(closed h0).mpr h4
           have h3:=(h1 h0).mpr h3
           have h4:=(h2 h0).mpr h4
           constructor
@@ -148,51 +155,87 @@ lemma model_tt_iff_mem_p (n:Nat):
           simp at hc
           have h01:n ≥ f1.size:= by linarith
           have h02:n ≥ f2.size:= by linarith
-          have h1:=hn f1 h01
-          have h2:=hn f2 h02
+          have h1:=hn h0 f1 h01
+          have h2:=hn h0 f2 h02
           intro h0
           constructor
           intro h
           simp at h0
-          apply (closed h0).mpr
           unfold Formula.force_form at h
           cases h with
-          | inl ht=>have h1:=Proof.ref ((h1 h0).mp ht);exact (Proof.introO1 _ h1)
-          | inr ht=>have h2:=Proof.ref ((h2 h0).mp ht);exact (Proof.introO2 _ h2)
+          | inl ht=>have h1:=(h1 h0).mp ht;exact (Proof.introO1 _ h1)
+          | inr ht=>have h2:=(h2 h0).mp ht;exact (Proof.introO2 _ h2)
           intro h
           simp at h0
-          have h0:=h0.right.right.left f1 f2 h
+          have h0:=h0.right.right.left f1 f2 ((closed h0).mpr h)
           unfold Formula.force_form
           cases h0 with
-          | inl ht=>have h1:=(h1 h0).mpr ht;left;exact h1
-          | inr ht=>have h2:=(h2 h0).mpr ht;right;exact h2
+          | inl ht=>left; exact (h1 h0).mpr ((closed h0).mp ht)
+          | inr ht=>right; exact (h2 h0).mpr ((closed h0).mp ht)
 
         | implication f1 f2 =>
             simp at hc
             have h01:n ≥ f1.size:= by linarith
             have h02:n ≥ f2.size:= by linarith
-            have h1:=hn f1 h01
-            have h2:=hn f2 h02
+            have h1:=hn h0 f1 h01
+            have h2:=hn h0 f2 h02
             intro hw
             constructor
             intro h
             unfold Formula.force_form at h
-            apply (closed hw).mpr
             have hr: model.R M h0 h0 := by simp;constructor;rfl;simp at hw;exact hw
             have hz:=h h0 hr
             rw [h1,h2] at hz
-            rw [closed hw] at hz
-            rw [closed hw] at hz
             by_cases hc1:(h0⊢f1)
             apply Proof.introI
             apply cond_mono_proof2
             exact hz hc1
-            by_cases hc2:(h0⊢f2)
+            let w2:M.world:=by simp;exact (h0∪{f1})
             apply Proof.introI
-            apply cond_mono_proof2
-            exact hc2
-            apply Proof.introI
-            
+            by_contra z
+            have ht:= prime_no_prf z
+            suffices h3p:prime (h0 ∪ {f1}) f2 ∈ M.W
+            have h4: h0 ⊆ prime (h0 ∪ {f1}) f2 := by simp[prime];apply Set.subset_union_of_subset_left;simp
+            have h5: M.R h0 (prime (h0 ∪ {f1}) f2) := by constructor;exact h4;simp at h3p;simp;exact h3p
+            have h6:= h (prime (h0 ∪ {f1}) f2) h5
+            have hp1:=hn (prime (h0 ∪ {f1}) f2) f1 h01 h3p
+            have hp2:=hn (prime (h0 ∪ {f1}) f2) f2 h02 h3p
+            rw[hp1] at h6
+            rw[hp2] at h6
+            apply ht
+            apply h6
+            have h10:(h0 ∪ {f1}) ⊢ f1 := by apply Proof.ref;simp
+            apply subset_proof h10
+            apply Set.subset_union_of_subset_left;
+            rfl
+            constructor
+            simp only[is_consist]
+            intro hbot
+            apply ht
+            apply Proof.botE
+            exact hbot
+            apply prime_of_prime
+
+            intro h
+            simp [Formula.force_form]
+            intro u hu hf1
+            have h1:=hn u f1 h01 hu.2
+            have h2:=hn u f2 h02 hu.2
+            rw[h2]
+            rw[h1] at hf1
+            have hh: u ⊢ f1→ᵢf2:= by apply subset_proof h;simp at hu;exact hu.left
+            rw[← Set.union_self u]
+            apply Proof.elimI hh hf1
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -216,7 +259,7 @@ lemma model_tt_iff_mem_p (n:Nat):
 
 
 
-          apply (closed ht).mpr
+
           unfold Formula.force_form at h2
           rcases h2 with ⟨t,hx⟩
           generalize eq2: @det σ t = xterm
@@ -295,9 +338,9 @@ lemma model_tt_iff_mem_p (n:Nat):
               intro h2
               simp at hc
               have hp2:n ≥ f.size:= by linarith
-              have hp3:=hn f hp2
-              apply (closed hz).mpr
+              have hp3:=hn h0 f hp2
               unfold Formula.force_form at h2
+
               sorry
               intro h4
               simp at hc
@@ -332,20 +375,15 @@ lemma model_tt_iff_mem_p (n:Nat):
 
 
 
-lemma model_tt_iff_mem{p : Formula σ}{w: Set (Formula σ)}(h0:w ∈ M.W ) :
-  (Formula.force_form M w h0 val0 p) ↔ (p ∈ w) := by
-  apply model_tt_iff_mem_p p.size
-  simp
+
 
 
 
 
 lemma model_tt_iff_prf {p : Formula σ}(h0:w ∈ M.W ) :
   (Formula.force_form M w h0 val0 p) ↔ (w ⊢ p) := by
-  apply Iff.trans (model_tt_iff_mem h0)
-  apply Iff.trans (closed h0)
+  apply ( model_tt_iff_mem_p p.size )
   rfl
-
 
 
 

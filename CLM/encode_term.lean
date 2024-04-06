@@ -5,7 +5,7 @@ open IFOL
 open encodable
 open fin
 
-private def construct:= ℕ ⊕ (ℕ × ℕ)
+private def construct:= ℕ ⊕ ℕ
 local notation "cfree" v => Sum.inl v
 local notation "cconst" v => Sum.inr v
 
@@ -17,12 +17,12 @@ private def arity: construct → Nat
 def g{σ : Signature}: Term σ → Wfin arity:=
 fun term => match term with
 | .free n => ⟨cfree n, mk_fn0⟩
-| .const n m=> ⟨cconst ⟨n,m⟩, mk_fn0⟩
+| .const n => ⟨cconst n, mk_fn0⟩
 
 
 private def decode0(σ : Signature) :Wfin arity → Term σ
 | ⟨cfree v, _⟩ => Term.free v
-| ⟨cconst c, _⟩ => Term.const c.1 c.2
+| ⟨cconst c, _⟩ => Term.const c
 
 theorem iso0{σ : Signature}: ∀ t:Term σ , decode0 σ (g t) = t:= by
 intro term
