@@ -123,18 +123,19 @@ def inf_insert_one {Γ: Set (Formula σ)}(h0:is_inf Γ c)(f1:Formula σ): ∃ d,
   simp at h1
   exact h1 f hi
 
+def Finite_free {σ : Signature}{Γ: Set (Formula σ)}(h:Set.Finite Γ): Set.Finite (free_terms Γ):= by
+  apply Set.Finite.biUnion h
+  intro i _
+  apply finite_free
+
+
 noncomputable def set_max {σ : Signature}{Γ: Set (Formula σ)}(h:Set.Finite Γ):ℕ := by
-  let s:= @free_terms σ Γ
+  let s:= free_terms Γ
   by_cases h0:Set.Nonempty s
-  have h:Set.Finite s:=by
-      simp [free_terms]
-      apply Set.Finite.biUnion h
-      intro i _
-      apply finite_free
-  have ht:=Set.Finite.exists_maximal_wrt const_show s h h0
+  have ht:=Set.Finite.exists_maximal_wrt const_show s (Finite_free h) h0
   let g:= const_show (Classical.choose ht)
-  exact g
-  exact 0
+  exact g+1
+  exact 1
 
 
 
@@ -144,9 +145,27 @@ lemma no_const_max {σ: Signature}{Γ: Set (Formula σ)}(h:Set.Finite Γ): Term.
   by_cases h0:Set.Nonempty (free_terms Γ)
   simp[set_max] at hc
   simp [h0] at hc
-  generalize eq:@const_show σ  (choose (_ :∃ a,a ∈ free_terms Γ ∧ ∀ (a' : Term σ), a' ∈ free_terms Γ → const_show a ≤ const_show a' → const_show a = const_show a')) = c
-  rw [eq] at hc
-  
+  have ht:=Set.Finite.exists_maximal_wrt const_show _ (Finite_free h) h0
+  have hpro:=Classical.choose_spec ht
+  generalize eq:Classical.choose ht = d
+  rw[eq] at hc
+  rw[eq] at hpro
+  have h5:const_show d ≤ const_show (@Term.const σ (2 * (const_show d + 1))) := match d with
+                                                                      | Term.const n => by simp[const_show];linarith
+                                                                      | Term.free n => by simp[const_show]
+  have h3:=hpro.2 (Term.const (2 * (const_show d + 1))) hc h5
+  simp[const_show] at h3
+  match d with
+  | Term.free n=> simp at h3;
+  | Term.const n=> simp at h3;linarith
+
+
+
+
+
+
+
+
 
 
 
@@ -176,7 +195,14 @@ structure finForms (σ:Signature) where
 @[simp]
 def insertn (Γ: Set (Formula σ))(r: Formula σ):ℕ → finForms σ
 | 0 => ⟨∅, by simp⟩
-| n+1 => ⟨insert_code (Γ ∪ ⋃ i:Fin (n+1), (insertn Γ r i).S) r n (set_max (insertn Γ r n).h), by apply fin_insert_code⟩
+| n+1 => by have h0: Set.Finite (⋃ i:Fin (n+1), (insertn Γ r i).S):= by apply Set.finite_iUnion
+                                                                        intro i;exact (insertn Γ r i).h
+            let c:=set_max h0
+            let s:=insert_code (Γ ∪ ⋃ i:Fin (n+1), (insertn Γ r i).S) r n c
+            have hs: Set.Finite s:= by apply fin_insert_code
+            exact ⟨s,hs⟩
+
+
 
 
 
@@ -188,9 +214,7 @@ def primen (Γ :Set (Formula σ))(r: Formula σ)(m:Nat): Set (Formula σ):=
 Γ ∪ (⋃ n:Fin m, (insertn Γ r n).S)
 
 -- lemma subset_insert_code {Γ :Set (Formula σ)}{r: Formula σ}(n) :  Γ ⊆ insert_code Γ r n :=by
---  intro v hv
---  simp
---  cases (@Encodable.decode (Formula σ) instEncodableFormula n : Option (Formula σ) )
+--  intro v hv--  cases (@Encodable.decode (Formula σ) instEncodableFormula n : Option (Formula σ) )
 --  assumption
 --  rename_i val
 --  simp[*]
@@ -540,9 +564,10 @@ lemma ind(n:Nat): n=0 ∨ ∃ m, n=m+1 := by
   rename_i q
   use q
 
+def std{σ:Signature}(Γ :  Set (Formula σ))(r: Formula σ): Prop := is_inf Γ 0 ∧ is_inf {r} 0 --standard condition
 
 
-lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat} :
+lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat}(hstd:std Γ p) :
   (primen Γ p i ⊢ p) → (Γ ⊢ p) :=by
   induction i
   simp[primen]
@@ -621,7 +646,6 @@ lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat} :
   simp [h1] at h
   simp[h04] at h
   exact h
-
   simp[h0] at h
   simp[hq] at h
   rename_i f
@@ -632,8 +656,31 @@ lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat} :
   unfold insert_c at h
   rw[← union_self S]
   apply Proof.elimE hext h
-  sorry
-  sorry
+  generalize eq8:set_max (_ : Set.Finite (⋃ (i : Fin (ni + 1)), (insertn Γ p ↑i).S)) = i
+  have h0:=hstd.1 i (by linarith)
+  rw [← eq]
+  simp [free_terms]
+  intro x hx
+  cases hx with
+  | inl hl=> simp[free_terms] at h0; exact h0 x hl
+  | inr hr=> simp[free_terms] at h
+             rcases hr with ⟨ii,hii⟩
+             have hsfin: Set.Finite (⋃ i:Fin (ni+1), (insertn Γ p i).S):= by apply Set.finite_iUnion
+                                                                             intro i;exact (insertn Γ p i).h
+             have hmax:=no_const_max hsfin
+             rw [← eq8]
+             simp[free_terms] at hmax
+             have hmax2:=hmax x ii hii
+             exact hmax2
+  generalize eq8:set_max (_ : Set.Finite (⋃ (i : Fin (ni + 1)), (insertn Γ p ↑i).S)) = i
+  have h0:=hstd.2 i (by linarith)
+  simp [free_terms] at h0
+  exact h0
+
+
+
+
+
   -- other
   rw [h0] at h; rw [hq] at h;simp at h;try assumption
   rw [h0] at h; rw [hq] at h;simp at h;try assumption
@@ -795,12 +842,12 @@ def prime_consq_iff_mem  {Γ :Set (Formula σ)}{p r: Formula σ} :
 
 
 
-def prime_not_prf {Γ :  Set (Formula σ)} {r : Formula σ} :
+def prime_not_prf {Γ :  Set (Formula σ)} {r : Formula σ}(hstd: std Γ r) :
   (prime Γ r ⊢ r) → (Γ ⊢ r) :=by
   intro h
   cases primen_sub_prf h
   rename_i n nh
-  apply insertn_prf nh
+  apply insertn_prf hstd nh
 
 
 
@@ -868,13 +915,16 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
                 -- have h2:(∅ ∪ {(f.Substitution (Term.free 0) τ).down 0}) ⊢ (∃ᵢf) := by
                 --   simp
                 --   apply Proof.introE h1
-                sorry
-                unfold insert_c
-                generalize eqx:2 * set_max (_ : Set.Finite (insertn Γ r num).S)=x
+                have := (provable_e_bot Q f m).mpr st
+                simp[e_bot_form] at this
+                exact this
+
+                generalize eqx:2 * set_max (_ : Set.Finite (⋃ (i : Fin (num + 1)), (insertn Γ r ↑i).S))=x
                 use x
+                simp[insert_c]
+                rw[eqx]
                 rw[← @p_bot_form_cross_sub σ f m (Term.free 0) (Term.const x)]
                 rw[← @p_bot_form_cross_down σ _ m 0]
-                simp
 
 
 
@@ -895,6 +945,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
 
 
 
-lemma prime_no_prf {Γ :  Set (Formula σ)} {r : Formula σ} (h : ¬ (Γ ⊢ r)) :
+
+lemma prime_no_prf {Γ :  Set (Formula σ)} {r : Formula σ} (h : ¬ (Γ ⊢ r))(hstd: std Γ r) :
  ¬ (prime Γ r ⊢ r) :=
-λ hm=> h (prime_not_prf hm)
+λ hm=> h (prime_not_prf hstd hm)

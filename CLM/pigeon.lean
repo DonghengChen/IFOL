@@ -52,6 +52,12 @@ induction n with
                  apply Proof.introO1
                  exact h0
 
+theorem provable_e_bot{σ:Signature}(Γ : Set (Formula σ))(p : (Formula σ))(n:ℕ): (Γ ⊢ e_bot_form p n) ↔ (Γ ⊢ ∃ᵢ p) := by
+simp[e_bot_form]
+sorry
+
+
+
 theorem provable_qp_bot{σ:Signature}(Γ : Set (Formula σ))(q p : (Formula σ))(n:ℕ):(Γ ⊢ qp_bot_form q p n) ↔ (Γ ⊢ q ∨ᵢ p) := by
 simp[qp_bot_form]
 constructor
