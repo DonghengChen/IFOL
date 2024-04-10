@@ -165,3 +165,14 @@ lemma p_bot_form_cross_down{σ:Signature}{p : (Formula σ)}{n k:ℕ}: (p_bot_for
     rw [← eq]
     simp
     exact hn
+
+theorem inf_form_genp{σ:Signature}(p : (Formula σ))(n:ℕ):∃m, n ≤ (@Encodable.encode (Formula σ) _ (p_bot_form p m)) := by
+  by_contra h0
+  push_neg at h0
+  let mapFin:ℕ → Fin n := fun n=> ⟨Encodable.encode (p_bot_form p n),h0 n⟩
+  have h1:=Finite.exists_ne_map_eq_of_infinite mapFin
+  rcases h1 with ⟨x,y,hneq,hxy⟩
+  simp at hxy
+  have h2:Formula.size (p_bot_form p x) = Formula.size (p_bot_form p y):=by rw[hxy]
+  simp [size_p_bot] at h2
+  exact hneq h2

@@ -51,7 +51,7 @@ lemma closed{p : Formula σ}{w: Set (Formula σ)}(h0:w ∈ M.W ) :
 
 
 lemma model_tt_iff_mem_p (n:Nat):
-  ∀w: Set (Formula σ),∀(p : Formula σ),(n≥p.size) → (h: w ∈ M.W)  → ((Formula.force_form M w h val0 p) ↔ (w ⊢ p)) := by
+  ∀w: Set (Formula σ),∀(p : Formula σ),(n≥p.size) → (h: w ∈ M.W) →  ((Formula.force_form M w h val0 p) ↔ (w ⊢ p)) := by
   induction n
   intro h0 p hc
   case zero => simp at hc
@@ -203,6 +203,7 @@ lemma model_tt_iff_mem_p (n:Nat):
             rw[hp1] at h6
             rw[hp2] at h6
             apply ht
+
             apply h6
             have h10:(h0 ∪ {f1}) ⊢ f1 := by apply Proof.ref;simp
             apply subset_proof h10
@@ -380,7 +381,7 @@ lemma model_tt_iff_mem_p (n:Nat):
 
 
 
-lemma model_tt_iff_prf {p : Formula σ}(h0:w ∈ M.W ) :
+lemma model_tt_iff_prf {p : Formula σ}(h0:w ∈ M.W ):
   (Formula.force_form M w h0 val0 p) ↔ (w ⊢ p) := by
   apply ( model_tt_iff_mem_p p.size )
   rfl
@@ -388,13 +389,13 @@ lemma model_tt_iff_prf {p : Formula σ}(h0:w ∈ M.W ) :
 
 
 
-theorem completeness {Γ :  Set (Formula σ)} {p : Formula σ} :
-  (Γ ⊧ p) → (Γ ⊢ p) :=by
+theorem completeness {Γ :  Set (Formula σ)} {p : Formula σ}(hstd: std Γ p) :
+  (Γ ⊧ p) → (Γ ⊢ p) := by
   by_contra h;push_neg at h;
   have hd: (prime Γ p ) ∈ worlds := by
     constructor
     apply consist_of_not_prf
-    exact prime_no_prf h.right
+    exact prime_no_prf h.right hstd
     exact prime_of_prime
   apply absurd
   fapply h.left
@@ -404,10 +405,10 @@ theorem completeness {Γ :  Set (Formula σ)} {p : Formula σ} :
   exact hd
 
   intro f hpm
-  have h2: f ∈ prime Γ p := subset_prime_self hpm
+  have h2: f ∈ prime Γ p := by simp;left;exact hpm
   have h3:= Proof.ref h2
-  apply (model_tt_iff_prf hd).mpr h3
+  apply (model_tt_iff_prf hd hstd).mpr h3
   intro x
   have h2:=(model_tt_iff_prf hd).mp x
-  have h1:=prime_no_prf h.right
+  have h1:=prime_no_prf h.right hstd
   trivial

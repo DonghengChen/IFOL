@@ -29,3 +29,27 @@ have z:= cond_mono_proof h Γ'
 rw [Set.union_eq_self_of_subset_right] at z
 exact z
 assumption
+
+lemma temp{a b c d:Nat}(h:¬a = d)(h2:Prop): (d = a) → h2 := by intro h2; rw[h2] at h;by_contra;simp at h
+
+lemma subs_comp {f: Formula σ}{u v w:Term σ}(h: v ∉ free_terms {f}):(f.Substitution u v).Substitution v w = f.Substitution u w:= by
+  induction f with
+  | atomic_formula r ts=>
+    simp[free_terms,Formula.free_terms] at h
+    cases v<;>
+    cases u<;>
+    cases w<;>
+    simp[Formula.Substitution]<;>
+    ext x<;>
+    have h4:= h x<;>
+    generalize eq: (ts x) = d<;>
+    cases d <;>
+
+    rw[eq] at h4<;>
+    simp[Term.free_terms] at h4<;>
+    rename_i a b c d<;>
+    simp[Term.Substitution]<;>
+    by_cases h3:d = b <;>
+    try simp[h3]<;>
+    try intro h5<;>
+    

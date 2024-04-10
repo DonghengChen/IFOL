@@ -136,8 +136,8 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Prop
 | introO2 {B Γ}(A): Proof Γ B →  Proof Γ (A ∨ᵢ B)
 | elimO   {A B C Γ Q G}: Proof Γ (A ∨ᵢ B) → Proof (G ∪ {A}) C → Proof (Q ∪ {B}) C → Proof (Γ ∪ Q ∪ G) C
 | botE {Γ}(A): Proof Γ ⊥ → Proof Γ A
-| introF {A: Formula σ}{Γ}{x} :
-Proof Γ A → x ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.lift 0).Substitution x (Term.free 0))
+| introF {A: Formula σ}{Γ}{x:Nat} :
+Proof Γ A → (Term.free x) ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.lift 0).Substitution (Term.free x) (Term.free 0))
 | elimF  {A: Formula σ}{Γ}(τ: Term σ) :
 Proof Γ (∀ᵢ A) → Proof Γ ((A.Substitution (Term.free 0) τ).down 0)
 | introE {A : Formula σ}{Γ}{t: Term σ}{v : ℕ} :
