@@ -15,7 +15,7 @@ def has_disj (Γ : Set (Formula σ)):=
 ∀ (f g : Formula σ),((f ∨ᵢ g) ∈ Γ) → ((f ∈ Γ) ∨ (g ∈ Γ))
 
 def has_const (Γ : Set (Formula σ)):=
-∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(n c:ℕ),( p_bot_form ((f.Substitution (Term.free 0) (Term.const c)).down 0) n) ∈ Γ)
+∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(n c:ℕ),( p_bot_form ((f.force_Substitution (Term.const c)).down 0) n) ∈ Γ)
 
 def is_prime (Γ : Set (Formula σ)):=
 is_closed Γ ∧ has_disj Γ ∧ has_const Γ
@@ -27,7 +27,7 @@ def insert_form (Γ : Set (Formula σ)) (p q r: Formula σ):Set (Formula σ) :=
 if ((Γ∪{p})⊢ r) then {q} else {p}
 
 def insert_c (_ : Set (Formula σ)) (f: Formula σ)(b:ℕ): Set (Formula σ):=by
-    exact {(f.Substitution (Term.free 0) (Term.const (2*b))).down 0}
+    exact {(f.force_Substitution (Term.const (2*b))).down 0}
 
 
 def if_elim {P:Prop}{α}{a}{X Y:Set α}(h1: a ∈ X)(h2: a ∈ Y): a ∈ (if P then X else Y):= by by_cases P;repeat simp[*]
@@ -209,9 +209,12 @@ induction h with
   use Γ' ∪ Γ''
   constructor;
   rw [Set.union_subset_iff]
-  constructor; exact subset_union_of_subset_left h11 _; exact subset_union_of_subset_right h5 _
+  constructor; exact h11; exact h5
   constructor;
-  apply Proof.elimI h12 h6
+  apply Proof.elimI
+  apply subset_proof h12
+  simp
+  apply cond_mono_proof h6
   apply Set.Finite.union
   assumption
   assumption
@@ -260,7 +263,7 @@ induction h with
   apply Proof.introO2 _ h3
   assumption
 | elimO  _ _ _ h5 h6 h7=>
-  rename_i A B Δ f g h1 h2 h3 h4
+  rename_i A B Δ f g h1 h2
   rcases h6 with ⟨Γ',h61,h62,h63⟩
   rcases h7 with ⟨Γ'',h71,h72,h73⟩
   rcases h5 with ⟨Γ''',h51,h52,h53⟩
@@ -269,18 +272,23 @@ induction h with
   rw [Set.union_subset_iff]
   constructor
   rw [Set.union_subset_iff]
-  constructor; apply subset_union_of_subset_right;
-  apply diff_subset_iff.mpr; rw [Set.union_comm]; exact h61
-  apply subset_union_of_subset_left; apply subset_union_of_subset_right; apply diff_subset_iff.mpr; rw [Set.union_comm]; exact h71
-  apply subset_union_of_subset_left; apply subset_union_of_subset_left; exact h51
+  constructor; apply diff_subset_iff.mpr; simp;simp at h61;exact h61
+  simp;simp at h71;exact h71
+  exact h51
   constructor;
   rw [Set.union_comm,Set.union_comm (Γ' \ {A}) _ ,← Set.union_assoc]
   apply Proof.elimO
-  exact h52
+  apply subset_proof h52
+  intro x hx
+  left;left;exact hx
+  rw[union_assoc]
+  rw [Set.diff_union_self]
+  apply cond_mono_proof
+  apply cond_mono_proof2;exact h62
+  rw[union_comm,union_comm Γ''' _ ,← union_assoc, ← union_assoc , union_comm {B} _]
   rw [Set.diff_union_self]
   apply cond_mono_proof2
-  exact h62
-  rw [Set.diff_union_self]
+  apply cond_mono_proof2
   apply cond_mono_proof2
   exact h72
   apply Finite.union
@@ -346,7 +354,7 @@ induction h with
   rename_i Q B C D E
   rcases h3 with ⟨Γ',h71,h72,h73⟩
   rcases h2 with ⟨Γ'',h61,h62,h63⟩
-  generalize eq : Formula.down 0 (Formula.Substitution Q (Term.free 0) E) = z
+  generalize eq : Formula.down 0 (Formula.force_Substitution Q E) = z
   rw [eq] at h1
   rw [eq] at h71
   use (Γ'\{z}) ∪ Γ''
@@ -512,8 +520,6 @@ lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat}(hstd:std Γ p
   simp[h04] at h
   by_cases h1:insert f1 S⊢p
   simp[h1] at h
-  rw[← union_self S]
-  nth_rw 1 [← union_self S]
   apply Proof.elimO h04
   apply subset_proof h1;simp
   rfl
@@ -668,10 +674,11 @@ cases h0
   generalize eq4:Γ ∪ ⋃ (i : Fin (num+1)), (insertn Γ r ↑i).S = S'
   rw [eq4] at hsc
   have hz0:{p_bot_form p n2}⊢p:= by apply (provable_p_bot _ _ n2).mp;apply Proof.ref;simp
-  have hz:= Proof.elimI hsc hz0
+  have hz:(S' ∪ {p_bot_form p n2}) ⊢ r := by apply Proof.elimI; apply subset_proof hsc;simp;apply subset_proof hz0;simp
   generalize eq5:Γ ∪ ⋃ (i : Fin (num2+1)), (insertn Γ r ↑i).S = S''
   have hss:S' ⊆ S'':= by rw[← eq4,← eq5];simp;intro x hx hxx;right;simp;use ⟨x.1,by linarith[x.2]⟩
-  have hz2:insert (p_bot_form p n2) S''⊢r:= by apply subset_proof hz;simp;apply Set.insert_subset_insert hss
+  have hz2:insert (p_bot_form p n2) S''⊢r:= by apply subset_proof hz
+                                               intro x hx;cases hx;right; apply hss;assumption;left ;assumption
   simp [hz2]
 
 
@@ -741,7 +748,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
     cases hf with
     | inl hl=> generalize eq2:Encodable.encode (∃ᵢf) = num
                let sset := insertn Γ r (num+1)
-               have h1:∃ c, Formula.down 0 (Formula.Substitution f (Term.free 0) (Term.const c)) ∈ sset.S := by
+               have h1:∃ c, Formula.down 0 (Formula.force_Substitution f (Term.const c)) ∈ sset.S := by
                   have :@Encodable.decode (Formula σ) instEncodableFormula num = (∃ᵢf) := by rw[← eq2];simp
                   simp [this]
                   constructor
@@ -763,7 +770,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
                 rcases h1 with ⟨m,hm⟩
                 unfold prime
                 use m
-                suffices hs:∃ c, p_bot_form (Formula.down 0 (Formula.Substitution f (Term.free 0) (Term.const c))) m ∈ ⋃ (n : ℕ), (insertn Γ r n).S
+                suffices hs:∃ c, p_bot_form (Formula.down 0 (Formula.force_Substitution f (Term.const c))) m ∈ ⋃ (n : ℕ), (insertn Γ r n).S
                 rcases hs with ⟨c,hc⟩
                 use c
                 right;exact hc
@@ -792,7 +799,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
                 use x
                 simp[insert_c]
                 rw[eqx]
-                rw[← @p_bot_form_cross_sub σ f m (Term.free 0) (Term.const x)]
+                rw[← @p_bot_cross_forcesub σ f m (Term.const x)]
                 rw[← @p_bot_form_cross_down σ _ m 0]
 
 lemma prime_no_prf {Γ :  Set (Formula σ)} {r : Formula σ} (h : ¬ (Γ ⊢ r))(hstd: std Γ r) :

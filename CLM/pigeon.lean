@@ -39,8 +39,6 @@ induction n with
                  rw[←ih]
                  constructor
                  intro h0
-                 rw[← union_self Γ]
-                 nth_rw 1 [← union_self Γ]
                  apply Proof.elimO h0
                  apply Proof.ref
                  simp
@@ -62,8 +60,6 @@ theorem provable_qp_bot{σ:Signature}(Γ : Set (Formula σ))(q p : (Formula σ))
 simp[qp_bot_form]
 constructor
 intro hl
-rw[← union_self Γ]
-nth_rw 1 [← union_self Γ]
 apply Proof.elimO hl
 apply Proof.introO1
 apply Proof.ref;simp
@@ -74,8 +70,6 @@ have h1:{p_bot_form p n}⊢p_bot_form p n:= by apply Proof.ref;simp
 apply (provable_p_bot {p_bot_form p n} p n).mp h1
 
 intro hr
-rw[← union_self Γ]
-nth_rw 1 [← union_self Γ]
 apply Proof.elimO hr
 apply Proof.introO1
 apply Proof.ref;simp
@@ -139,6 +133,17 @@ lemma p_bot_form_cross_sub{σ:Signature}{p : (Formula σ)}{n:ℕ}{s t:Term σ}: 
     rw [← eq]
     simp
     exact hn
+
+lemma p_bot_cross_forcesub{σ:Signature}{p : (Formula σ)}{n:ℕ}{s:Term σ}: (p_bot_form (p.force_Substitution s) n) = Formula.force_Substitution (p_bot_form p n) s := by
+    induction n
+    simp[p_bot_form,Formula.Substitution]
+    rename_i n hn
+    simp[p_bot_form,hn]
+    rw[← hn]
+    generalize eq:(p_bot_form (Formula.force_Substitution p s) n∨ᵢ⊥) = q
+    unfold Formula.force_Substitution
+    simp[Formula.force_Substitution]
+    rw[← eq,hn]
 
 lemma p_bot_form_cross_lift{σ:Signature}{p : (Formula σ)}{n k:ℕ}: (p_bot_form (Formula.lift k p) n) = Formula.lift k (p_bot_form p n) := by
     induction n

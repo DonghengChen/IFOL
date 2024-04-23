@@ -13,6 +13,7 @@ inductive Term (σ : Signature): Type
 | free : ℕ  → Term σ
 | const : ℕ → Term σ
 
+
 inductive Formula (σ : Signature) : Type
   | atomic_formula : (r : ℕ ) → (Fin (σ.arity' r) → Term σ ) → Formula σ
   | conjunction : Formula σ → Formula σ → Formula σ
@@ -30,6 +31,7 @@ prefix:25 "∃ᵢ" => Formula.existential_quantification
 prefix:24 "∀ᵢ" => Formula.universal_quantification
 prefix:19 "#" => Formula.atomic_formula
 notation "⊥" => Formula.bottom
+
 
 
 def Term.lift (c : Nat) : Term σ → Term σ -- lift one position
@@ -51,6 +53,15 @@ def Formula.lift (c : Nat) : Formula σ → Formula σ
   | ∀ᵢ f => ∀ᵢ (f.lift (c+1))
   | ⊥ => ⊥
 
+def Formula.force_lift : Formula σ → Formula σ
+  | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).lift 0)
+  | f1 ∧ᵢ f2 =>  (f1.force_lift) ∧ᵢ (f2.force_lift)
+  | f1 ∨ᵢ f2 =>  (f1.force_lift) ∨ᵢ (f2.force_lift)
+  | f1 →ᵢ f2 =>  (f1.force_lift) →ᵢ (f2.force_lift)
+  | ∃ᵢ f =>  ∃ᵢ (f.force_lift)
+  | ∀ᵢ f => ∀ᵢ (f.force_lift)
+  | ⊥ => ⊥
+
 def Formula.down (c : Nat) : Formula σ → Formula σ
   | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).down c)
   | f1 ∧ᵢ f2 =>  (f1.down c) ∧ᵢ (f2.down c)
@@ -58,6 +69,15 @@ def Formula.down (c : Nat) : Formula σ → Formula σ
   | f1 →ᵢ f2 =>  (f1.down c) →ᵢ (f2.down c)
   | ∃ᵢ f =>  ∃ᵢ (f.down (c+1))
   | ∀ᵢ f => ∀ᵢ (f.down (c+1))
+  | ⊥ => ⊥
+
+def Formula.force_down : Formula σ → Formula σ
+  | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).down 0)
+  | f1 ∧ᵢ f2 =>  (f1.force_down) ∧ᵢ (f2.force_down)
+  | f1 ∨ᵢ f2 =>  (f1.force_down) ∨ᵢ (f2.force_down)
+  | f1 →ᵢ f2 =>  (f1.force_down) →ᵢ (f2.force_down)
+  | ∃ᵢ f =>  ∃ᵢ (f.force_down)
+  | ∀ᵢ f => ∀ᵢ (f.force_down)
   | ⊥ => ⊥
 
 def Term.Substitution (src m e: Term σ) : Term σ :=
@@ -86,12 +106,50 @@ def Formula.Substitution (f : Formula σ) (m e: Term σ): Formula σ :=
     | ⊥ => ⊥
   | .free t => match f with
     | atomic_formula r ts => (# r) (fun q => (ts q).Substitution (.free t) e)
-    | ∃ᵢ f  => ∃ᵢ (f.Substitution ((Term.free t).lift 0) e )
-    | ∀ᵢ f => ∀ᵢ  (f.Substitution ((Term.free t).lift 0) e )
+    | ∃ᵢ f  => ∃ᵢ (f.Substitution ((Term.free t).lift 0) (e.lift 0) )
+    | ∀ᵢ f => ∀ᵢ  (f.Substitution ((Term.free t).lift 0) (e.lift 0) )
     | f1 ∧ᵢ f2 => (f1.Substitution  (.free t) e ) ∧ᵢ (f2.Substitution  (.free t) e )
     | f1 ∨ᵢ f2 => (f1.Substitution  (.free t) e ) ∨ᵢ (f2.Substitution  (.free t) e )
     | f1 →ᵢ f2 =>  (f1.Substitution  (.free t) e ) →ᵢ  (f2.Substitution  (.free t) e )
     | ⊥ => ⊥
+
+
+
+--Delete quantifier 0->term
+def Formula.force_Substitution (f:Formula σ)(e :Term σ ): Formula σ := --subst for free 0
+  match f with
+  | atomic_formula r ts => (# r) (fun q => match (ts q) with | .free 0 => e | _ => (ts q) )
+  | f1 ∧ᵢ f2 => (f1.force_Substitution e ) ∧ᵢ (f2.force_Substitution e  )
+  | f1 ∨ᵢ f2 => (f1.force_Substitution e ) ∨ᵢ (f2.force_Substitution e  )
+  | f1 →ᵢ f2 =>  (f1.force_Substitution e  ) →ᵢ  (f2.force_Substitution e )
+  | ⊥ => ⊥
+  | ∃ᵢ f  => ∃ᵢ (f.force_Substitution  (Term.lift 0 e ) )
+  | ∀ᵢ f => ∀ᵢ  (f.force_Substitution (Term.lift 0 e ) )
+
+--Add quantifier  term->0
+def Formula.iforce_Substitution (f:Formula σ)(n :Nat ): Formula σ := --subst for free 0
+  match f with
+  | atomic_formula r ts => (# r) (fun q => match (ts q) with | .free m => if n=m then .free 0 else (ts q) | _ => (ts q) )
+  | f1 ∧ᵢ f2 => (f1.iforce_Substitution n ) ∧ᵢ (f2.iforce_Substitution n  )
+  | f1 ∨ᵢ f2 => (f1.iforce_Substitution n ) ∨ᵢ (f2.iforce_Substitution n  )
+  | f1 →ᵢ f2 =>  (f1.iforce_Substitution n  ) →ᵢ  (f2.iforce_Substitution n )
+  | ⊥ => ⊥
+  | ∃ᵢ f  => ∃ᵢ (f.iforce_Substitution  (n+1) )
+  | ∀ᵢ f  => ∀ᵢ (f.iforce_Substitution  (n+1) )
+-- def σ : Signature:= {arity' := λ _ => 2}
+-- @[simp]def t0 : Term σ := Term.free 0
+-- @[simp]def t1 : Term σ := Term.free 1
+-- @[simp]def t2 : Term σ := Term.free 2
+-- @[simp]def ts1: Fin 2 → Term σ := λ i => match i with | ⟨0, _⟩ => t0 | ⟨1, _⟩ => t1
+-- @[simp]def ts2: Fin 2 → Term σ := λ i => match i with | ⟨0, _⟩ => t1 | ⟨1, _⟩ => t1
+-- @[simp]def P1 : Formula σ := @Formula.atomic_formula σ 0 ts1
+-- @[simp]def P2 : Formula σ := @Formula.atomic_formula σ 0 ts2
+-- @[simp]def f1 : Formula σ := ∃ᵢ P1
+-- @[simp]def f2:=Formula.force_Substitution f1 t0
+-- @[simp]def f3:=Formula.Substitution f1 t0 t0
+-- example{σ : Signature} : f2 = (∃ᵢ P2) := by simp[Formula.force_Substitution];ext h;split;simp[Term.lift];split;rfl;rfl;split;rename_i j k;simp at k;rfl
+-- example{σ : Signature} : f2 = (∃ᵢ P2) := by simp[Formula.force_Substitution];ext h;split;simp[Term.lift];split;rfl;rfl;split;rename_i j k;simp at k;rfl
+-- example : f3 = f1 := by simp[Formula.Substitution];ext h;split<;>dsimp[Term.lift,Term.Substitution]<;>simp[Term.Substitution]
 
 
 @[simp]
@@ -128,23 +186,23 @@ def Set.free_terms (Γ : Set (Formula σ)) : Set (Term σ) :=
 inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Prop
 | ref        : (A ∈ Γ) → Proof Γ A
 | introI {A B Γ} : Proof (Γ∪{A}) B → Proof Γ (A →ᵢ B)
-| elimI {A B Γ Q}: Proof Γ (A →ᵢ B) → Proof Q A → Proof (Γ ∪ Q) B
-| introA {A B Γ Q}: Proof Γ A → Proof Q B → Proof (Γ ∪ Q) (A ∧ᵢ B)
+| elimI {A B Γ}: Proof Γ (A →ᵢ B) → Proof Γ A → Proof Γ B
+| introA {A B Γ}: Proof Γ A → Proof Γ B → Proof Γ (A ∧ᵢ B)
 | elimA1  {A B Γ}: Proof Γ (A ∧ᵢ B) → Proof Γ A
 | elimA2  {A B Γ}: Proof Γ (A ∧ᵢ B) → Proof Γ B
 | introO1 {A Γ}(B): Proof Γ A → Proof Γ (A ∨ᵢ B)
 | introO2 {B Γ}(A): Proof Γ B →  Proof Γ (A ∨ᵢ B)
-| elimO   {A B C Γ Q G}: Proof Γ (A ∨ᵢ B) → Proof (G ∪ {A}) C → Proof (Q ∪ {B}) C → Proof (Γ ∪ Q ∪ G) C
+| elimO   {A B C Γ}: Proof Γ (A ∨ᵢ B) → Proof (Γ ∪ {A}) C → Proof (Γ ∪ {B}) C → Proof Γ C
 | botE {Γ}(A): Proof Γ ⊥ → Proof Γ A
 | introF {A: Formula σ}{Γ}{x:Nat} :
-Proof Γ A → (Term.free x) ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.lift 0).Substitution (Term.free x) (Term.free 0))
+Proof Γ A → (Term.free x) ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.force_lift).iforce_Substitution (x+1))
 | elimF  {A: Formula σ}{Γ}(τ: Term σ) :
-Proof Γ (∀ᵢ A) → Proof Γ ((A.Substitution (Term.free 0) τ).down 0)
+Proof Γ (∀ᵢ A) → Proof Γ ((A.force_Substitution τ).force_down)
 | introE {A : Formula σ}{Γ}{t: Term σ}{v : ℕ} :
-Proof Γ (A.Substitution (Term.free v) t)  → Proof Γ (∃ᵢ (A.lift 0).Substitution (Term.free v) (Term.free 0))
-| elimE {A B: Formula σ}{Γ Q: Set (Formula σ)}{τ: Term σ}:
-Proof Γ (∃ᵢ A) → Proof (Q∪{(A.Substitution (Term.free 0) τ).down 0}) B →
-τ ∉ (Set.free_terms Q) → τ ∉ (Formula.free_terms B 0)  →  Proof (Γ∪Q) B
+Proof Γ (A.Substitution (Term.free v) t)  → Proof Γ (∃ᵢ (A.force_lift).iforce_Substitution (v+1))
+| elimE {A B: Formula σ}{Γ Δ: Set (Formula σ)}{τ: Term σ}:
+Proof Γ (∃ᵢ A) → Proof (Δ ∪{(A.force_Substitution τ).force_down}) B →
+τ ∉ (Set.free_terms Δ) → τ ∉ (Formula.free_terms B 0)  →  Proof (Γ∪Δ) B
 
 notation Γ "⊢" A => Proof Γ A
 
@@ -164,7 +222,7 @@ structure model (σ : Signature) where
   R_closed : (u v:world) →  R u v → (u ∈ W)  → (v ∈ W)
 
 def insert_value_function (M : model σ) (v : Term σ → M.A) (item : M.A) : Term σ → M.A --head insert from zero
-| .free n => if n=0 then item else v (.free (n+1))
+| .free n => if n=0 then item else v (.free (n-1))
 | .const z => v (.const z)
 
 def Formula.force_form (M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Term σ → M.A) : Formula σ  → Prop

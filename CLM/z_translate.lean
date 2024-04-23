@@ -29,9 +29,18 @@ def z_set {σ:Signature}(Γ: Set (Formula σ)): Set (Formula σ) :=
 def weak_provable{σ:Signature}(f: Formula σ): (∅⊢ f)↔ (∅ ⊢ (z_formula f)) := by
   constructor
   intro h
-  induction f with
-  | atomic_formula r ts => simp[z_formula]
-                           
+  
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -49,5 +58,12 @@ def bi_provable {σ:Signature}(Γ: Set (Formula σ))(f: Formula σ): (Γ ⊢ f) 
   use i
   constructor
   exact h2 hi
+  rfl
+  induction h
+  sorry
+  simp[z_formula]
+  apply Proof.introI
+
+
   sorry
   sorry
