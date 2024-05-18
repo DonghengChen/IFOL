@@ -15,7 +15,7 @@ def has_disj (Γ : Set (Formula σ)):=
 ∀ (f g : Formula σ),((f ∨ᵢ g) ∈ Γ) → ((f ∈ Γ) ∨ (g ∈ Γ))
 
 def has_const (Γ : Set (Formula σ)):=
-∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(n c:ℕ),( p_bot_form ((f.force_Substitution (Term.const c)).down 0) n) ∈ Γ)
+∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(n c:ℕ),( p_bot_form ((f.force_Substitution (Term.const c)).force_down) n) ∈ Γ)
 
 def is_prime (Γ : Set (Formula σ)):=
 is_closed Γ ∧ has_disj Γ ∧ has_const Γ
@@ -27,7 +27,7 @@ def insert_form (Γ : Set (Formula σ)) (p q r: Formula σ):Set (Formula σ) :=
 if ((Γ∪{p})⊢ r) then {q} else {p}
 
 def insert_c (_ : Set (Formula σ)) (f: Formula σ)(b:ℕ): Set (Formula σ):=by
-    exact {(f.force_Substitution (Term.const (2*b))).down 0}
+    exact {(f.force_Substitution (Term.const (2*b))).force_down}
 
 
 def if_elim {P:Prop}{α}{a}{X Y:Set α}(h1: a ∈ X)(h2: a ∈ Y): a ∈ (if P then X else Y):= by by_cases P;repeat simp[*]
@@ -354,7 +354,7 @@ induction h with
   rename_i Q B C D E
   rcases h3 with ⟨Γ',h71,h72,h73⟩
   rcases h2 with ⟨Γ'',h61,h62,h63⟩
-  generalize eq : Formula.down 0 (Formula.force_Substitution Q E) = z
+  generalize eq : Formula.force_down (Formula.force_Substitution Q E) = z
   rw [eq] at h1
   rw [eq] at h71
   use (Γ'\{z}) ∪ Γ''
@@ -748,7 +748,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
     cases hf with
     | inl hl=> generalize eq2:Encodable.encode (∃ᵢf) = num
                let sset := insertn Γ r (num+1)
-               have h1:∃ c, Formula.down 0 (Formula.force_Substitution f (Term.const c)) ∈ sset.S := by
+               have h1:∃ c, Formula.force_down (Formula.force_Substitution f (Term.const c)) ∈ sset.S := by
                   have :@Encodable.decode (Formula σ) instEncodableFormula num = (∃ᵢf) := by rw[← eq2];simp
                   simp [this]
                   constructor
@@ -770,7 +770,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
                 rcases h1 with ⟨m,hm⟩
                 unfold prime
                 use m
-                suffices hs:∃ c, p_bot_form (Formula.down 0 (Formula.force_Substitution f (Term.const c))) m ∈ ⋃ (n : ℕ), (insertn Γ r n).S
+                suffices hs:∃ c, p_bot_form (Formula.force_down (Formula.force_Substitution f (Term.const c))) m ∈ ⋃ (n : ℕ), (insertn Γ r n).S
                 rcases hs with ⟨c,hc⟩
                 use c
                 right;exact hc
@@ -800,7 +800,8 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
                 simp[insert_c]
                 rw[eqx]
                 rw[← @p_bot_cross_forcesub σ f m (Term.const x)]
-                rw[← @p_bot_form_cross_down σ _ m 0]
+                rw[← @p_bot_cross_force_down σ _ m]
+
 
 lemma prime_no_prf {Γ :  Set (Formula σ)} {r : Formula σ} (h : ¬ (Γ ⊢ r))(hstd: std Γ r) :
  ¬ (prime Γ r ⊢ r) :=

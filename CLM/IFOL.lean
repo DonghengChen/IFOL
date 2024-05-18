@@ -187,7 +187,7 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Prop
 | ref        : (A ∈ Γ) → Proof Γ A
 | introI {A B Γ} : Proof (Γ∪{A}) B → Proof Γ (A →ᵢ B)
 | elimI {A B Γ}: Proof Γ (A →ᵢ B) → Proof Γ A → Proof Γ B
-| introA {A B Γ}: Proof Γ A → Proof Γ B → Proof Γ (A ∧ᵢ B)
+| introA {A B Γ Δ}: Proof Γ A → Proof Δ B → Proof (Γ∪Δ)  (A ∧ᵢ B)
 | elimA1  {A B Γ}: Proof Γ (A ∧ᵢ B) → Proof Γ A
 | elimA2  {A B Γ}: Proof Γ (A ∧ᵢ B) → Proof Γ B
 | introO1 {A Γ}(B): Proof Γ A → Proof Γ (A ∨ᵢ B)

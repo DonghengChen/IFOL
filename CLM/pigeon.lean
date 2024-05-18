@@ -181,3 +181,25 @@ theorem inf_form_genp{σ:Signature}(p : (Formula σ))(n:ℕ):∃m, n ≤ (@Encod
   have h2:Formula.size (p_bot_form p x) = Formula.size (p_bot_form p y):=by rw[hxy]
   simp [size_p_bot] at h2
   exact hneq h2
+
+lemma p_bot_cross_force_down{σ:Signature}{p : (Formula σ)}{n :ℕ}: (p_bot_form (Formula.force_down p) n) = Formula.force_down (p_bot_form p n) := by
+    induction n
+    simp[p_bot_form,Formula.force_down]
+    rename_i n hn
+    simp[p_bot_form,hn]
+    rw[← hn]
+    generalize eq:(p_bot_form (Formula.force_down p) n∨ᵢ⊥) = q
+    unfold Formula.force_down
+    simp[Formula.force_down]
+    rw[← eq,hn]
+
+lemma p_bot_cross_force_lift{σ:Signature}{p : (Formula σ)}{n :ℕ}: (p_bot_form (Formula.force_lift p) n) = Formula.force_lift (p_bot_form p n) := by
+    induction n
+    simp[p_bot_form,Formula.force_lift]
+    rename_i n hn
+    simp[p_bot_form,hn]
+    rw[← hn]
+    generalize eq:(p_bot_form (Formula.force_lift p) n∨ᵢ⊥) = q
+    unfold Formula.force_lift
+    simp[Formula.force_lift]
+    rw[← eq,hn]

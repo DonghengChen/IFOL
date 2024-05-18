@@ -27,9 +27,11 @@ def z_set {σ:Signature}(Γ: Set (Formula σ)): Set (Formula σ) :=
 
 
 def weak_provable{σ:Signature}(f: Formula σ): (∅⊢ f)↔ (∅ ⊢ (z_formula f)) := by
-  constructor
-  intro h
-  
+  sorry
+  -- constructor
+  -- intro h
+
+
 
 
 
