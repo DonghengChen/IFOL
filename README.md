@@ -11,6 +11,10 @@ theorem completeness_final : (Γ ⊧ p) → (Γ ⊢ p)   -- CLM/completeness.lea
 Both are sorry-free and depend only on the standard axioms
 `propext`, `Quot.sound`, `Classical.choice`.
 
+**[PROOF.md](PROOF.md)** documents the full proof route and the rationale for
+the non-standard structures (the odd/even constant mapping, the language
+tower, birth-level domain elements, constant generalization).
+
 ## Design
 
 - **Syntax** (`CLM/IFOL.lean`): terms are de Bruijn indices (`free`) plus
