@@ -11,8 +11,8 @@ a finite sub-derivation, bounds its constants by some N, and applies
 `rename_proof` with the explicit injection `unz N` that inverts `zc` below N. -/
 
 import CLM.IFOL
-import CLM.general
-import CLM.completeness
+import CLM.proof_lemmas
+import CLM.henkin
 open IFOL
 open Set
 open Classical

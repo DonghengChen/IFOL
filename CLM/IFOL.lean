@@ -53,15 +53,6 @@ def Formula.lift (c : Nat) : Formula σ → Formula σ
   | ∀ᵢ f => ∀ᵢ (f.lift (c+1))
   | ⊥ => ⊥
 
-def Formula.force_lift : Formula σ → Formula σ
-  | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).lift 0)
-  | f1 ∧ᵢ f2 =>  (f1.force_lift) ∧ᵢ (f2.force_lift)
-  | f1 ∨ᵢ f2 =>  (f1.force_lift) ∨ᵢ (f2.force_lift)
-  | f1 →ᵢ f2 =>  (f1.force_lift) →ᵢ (f2.force_lift)
-  | ∃ᵢ f =>  ∃ᵢ (f.force_lift)
-  | ∀ᵢ f => ∀ᵢ (f.force_lift)
-  | ⊥ => ⊥
-
 def Formula.down (c : Nat) : Formula σ → Formula σ
   | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).down c)
   | f1 ∧ᵢ f2 =>  (f1.down c) ∧ᵢ (f2.down c)
@@ -69,15 +60,6 @@ def Formula.down (c : Nat) : Formula σ → Formula σ
   | f1 →ᵢ f2 =>  (f1.down c) →ᵢ (f2.down c)
   | ∃ᵢ f =>  ∃ᵢ (f.down (c+1))
   | ∀ᵢ f => ∀ᵢ (f.down (c+1))
-  | ⊥ => ⊥
-
-def Formula.force_down : Formula σ → Formula σ
-  | atomic_formula r ts => atomic_formula r (fun q:Fin (σ.arity' r)=> (ts q).down 0)
-  | f1 ∧ᵢ f2 =>  (f1.force_down) ∧ᵢ (f2.force_down)
-  | f1 ∨ᵢ f2 =>  (f1.force_down) ∨ᵢ (f2.force_down)
-  | f1 →ᵢ f2 =>  (f1.force_down) →ᵢ (f2.force_down)
-  | ∃ᵢ f =>  ∃ᵢ (f.force_down)
-  | ∀ᵢ f => ∀ᵢ (f.force_down)
   | ⊥ => ⊥
 
 def Term.Substitution (src m e: Term σ) : Term σ :=
@@ -115,41 +97,6 @@ def Formula.Substitution (f : Formula σ) (m e: Term σ): Formula σ :=
 
 
 
---Delete quantifier 0->term
-def Formula.force_Substitution (f:Formula σ)(e :Term σ ): Formula σ := --subst for free 0
-  match f with
-  | atomic_formula r ts => (# r) (fun q => match (ts q) with | .free 0 => e | _ => (ts q) )
-  | f1 ∧ᵢ f2 => (f1.force_Substitution e ) ∧ᵢ (f2.force_Substitution e  )
-  | f1 ∨ᵢ f2 => (f1.force_Substitution e ) ∨ᵢ (f2.force_Substitution e  )
-  | f1 →ᵢ f2 =>  (f1.force_Substitution e  ) →ᵢ  (f2.force_Substitution e )
-  | ⊥ => ⊥
-  | ∃ᵢ f  => ∃ᵢ (f.force_Substitution  (Term.lift 0 e ) )
-  | ∀ᵢ f => ∀ᵢ  (f.force_Substitution (Term.lift 0 e ) )
-
---Add quantifier  term->0
-def Formula.iforce_Substitution (f:Formula σ)(n :Nat ): Formula σ := --subst for free 0
-  match f with
-  | atomic_formula r ts => (# r) (fun q => match (ts q) with | .free m => if n=m then .free 0 else (ts q) | _ => (ts q) )
-  | f1 ∧ᵢ f2 => (f1.iforce_Substitution n ) ∧ᵢ (f2.iforce_Substitution n  )
-  | f1 ∨ᵢ f2 => (f1.iforce_Substitution n ) ∨ᵢ (f2.iforce_Substitution n  )
-  | f1 →ᵢ f2 =>  (f1.iforce_Substitution n  ) →ᵢ  (f2.iforce_Substitution n )
-  | ⊥ => ⊥
-  | ∃ᵢ f  => ∃ᵢ (f.iforce_Substitution  (n+1) )
-  | ∀ᵢ f  => ∀ᵢ (f.iforce_Substitution  (n+1) )
--- def σ : Signature:= {arity' := λ _ => 2}
--- @[simp]def t0 : Term σ := Term.free 0
--- @[simp]def t1 : Term σ := Term.free 1
--- @[simp]def t2 : Term σ := Term.free 2
--- @[simp]def ts1: Fin 2 → Term σ := λ i => match i with | ⟨0, _⟩ => t0 | ⟨1, _⟩ => t1
--- @[simp]def ts2: Fin 2 → Term σ := λ i => match i with | ⟨0, _⟩ => t1 | ⟨1, _⟩ => t1
--- @[simp]def P1 : Formula σ := @Formula.atomic_formula σ 0 ts1
--- @[simp]def P2 : Formula σ := @Formula.atomic_formula σ 0 ts2
--- @[simp]def f1 : Formula σ := ∃ᵢ P1
--- @[simp]def f2:=Formula.force_Substitution f1 t0
--- @[simp]def f3:=Formula.Substitution f1 t0 t0
--- example{σ : Signature} : f2 = (∃ᵢ P2) := by simp[Formula.force_Substitution];ext h;split;simp[Term.lift];split;rfl;rfl;split;rename_i j k;simp at k;rfl
--- example{σ : Signature} : f2 = (∃ᵢ P2) := by simp[Formula.force_Substitution];ext h;split;simp[Term.lift];split;rfl;rfl;split;rename_i j k;simp at k;rfl
--- example : f3 = f1 := by simp[Formula.Substitution];ext h;split<;>dsimp[Term.lift,Term.Substitution]<;>simp[Term.Substitution]
 
 
 @[simp]

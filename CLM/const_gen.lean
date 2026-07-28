@@ -15,10 +15,10 @@ Main results:
                  ∀-case of the canonical-model truth lemma. -/
 
 import CLM.IFOL
-import CLM.general
-import CLM.completeness
-import CLM.rename
-import CLM.swap
+import CLM.proof_lemmas
+import CLM.henkin
+import CLM.const_rename
+import CLM.var_swap
 open IFOL
 open Set
 open Classical
@@ -463,15 +463,6 @@ lemma mem_ft_cv {c x : ℕ} {f : Formula σ} {t : Term σ} :
   | bottom =>
     intro d h
     exact absurd h (Set.not_mem_empty _)
-
-lemma cv_not_mem_ft_var {c x y : ℕ} (hxy : y ≠ x) {f : Formula σ}
-    (h : Term.free y ∉ f.free_terms 0) :
-    Term.free y ∉ (Formula.cv c x 0 f).free_terms 0 := by
-  intro hc
-  rcases mem_ft_cv hc with h1 | ⟨h2, _⟩
-  · injection h1 with h1'
-    exact hxy h1'
-  · exact h h2
 
 lemma cv_not_mem_set_ft_var {c x y : ℕ} (hxy : y ≠ x) {Γ : Set (Formula σ)}
     (h : Term.free y ∉ Set.free_terms Γ) :

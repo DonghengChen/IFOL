@@ -1,5 +1,5 @@
 import CLM.IFOL
-import CLM.general
+import CLM.proof_lemmas
 open IFOL
 open Set
 open Classical

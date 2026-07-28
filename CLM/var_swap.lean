@@ -9,10 +9,10 @@ is ≥ d, which bound ones aren't).
 The swap is an involution, so `swf_proof` transports derivations in both
 directions; it is the tool that lets us re-target the fresh variable of a
 derivation, which is the engine of the constant-generalization lemma
-(`CLM/cv.lean`). -/
+(`CLM/const_gen.lean`). -/
 
 import CLM.IFOL
-import CLM.general
+import CLM.proof_lemmas
 open IFOL
 open Set
 open Classical
@@ -107,34 +107,11 @@ lemma swf_term_invol (a b d : ℕ) (t : Term σ) :
       · rw [swf_free_eq' h1 h2, swf_free_eq rfl, h2]
       · rw [swf_free_ne h1 h2, swf_free_ne h1 h2]
 
-lemma swf_invol (a b d : ℕ) (f : Formula σ) :
-    Formula.swf a b d (Formula.swf a b d f) = f := by
-  induction f generalizing d with
-  | atomic_formula r ts => simp [Formula.swf, swf_term_invol]
-  | conjunction f1 f2 ih1 ih2 => simp [Formula.swf, ih1, ih2]
-  | disjunction f1 f2 ih1 ih2 => simp [Formula.swf, ih1, ih2]
-  | implication f1 f2 ih1 ih2 => simp [Formula.swf, ih1, ih2]
-  | existential_quantification f ih => simp [Formula.swf, ih]
-  | universal_quantification f ih => simp [Formula.swf, ih]
-  | bottom => rfl
-
 lemma swf_term_inj (a b d : ℕ) : Function.Injective (Term.swf a b d : Term σ → Term σ) := by
   intro t1 t2 h
   have h2 := congrArg (Term.swf a b d) h
   rwa [swf_term_invol, swf_term_invol] at h2
 
-@[simp]
-lemma swf_size (a b d : ℕ) (f : Formula σ) : (f.swf a b d).size = f.size := by
-  induction f generalizing d with
-  | atomic_formula r ts => rfl
-  | conjunction f1 f2 ih1 ih2 => simp [Formula.swf, ih1, ih2]
-  | disjunction f1 f2 ih1 ih2 => simp [Formula.swf, ih1, ih2]
-  | implication f1 f2 ih1 ih2 => simp [Formula.swf, ih1, ih2]
-  | existential_quantification f ih => simp [Formula.swf, ih]
-  | universal_quantification f ih => simp [Formula.swf, ih]
-  | bottom => rfl
-
-/-- Swapping a free variable at depth 0. -/
 lemma swf_term_free (a b x : ℕ) :
     Term.swf a b 0 (Term.free x : Term σ) = Term.free (sw a b x) := by
   by_cases h1 : x = a
@@ -576,71 +553,6 @@ lemma swf_free_var_mem {a b x : ℕ} {Γ : Set (Formula σ)} :
       rwa [h2] at hs
   · intro hx
     exact ⟨Term.free x, hx, swf_term_free a b x⟩
-
-private lemma swf_term_id_of_not_mem {a b : ℕ} (t : Term σ) (d : ℕ)
-    (ha : (Term.free a : Term σ) ∉ t.free_terms d)
-    (hb : (Term.free b : Term σ) ∉ t.free_terms d) :
-    Term.swf a b d t = t := by
-  cases t with
-  | const c => rfl
-  | free n =>
-    have hna : ¬ n = a + d := by
-      intro h
-      apply ha
-      rw [ft_free_ge (show n ≥ d from by rw [h]; exact Nat.le_add_left d a), h, Nat.add_sub_cancel]
-      rfl
-    have hnb : ¬ n = b + d := by
-      intro h
-      apply hb
-      rw [ft_free_ge (show n ≥ d from by rw [h]; exact Nat.le_add_left d b), h, Nat.add_sub_cancel]
-      rfl
-    exact swf_free_ne hna hnb
-
-private lemma swf_id_aux {a b : ℕ} :
-    ∀ (f : Formula σ) (d : ℕ), (Term.free a : Term σ) ∉ f.free_terms d →
-      (Term.free b : Term σ) ∉ f.free_terms d → Formula.swf a b d f = f := by
-  intro f
-  induction f with
-  | atomic_formula r ts =>
-    intro d ha hb
-    simp only [Formula.swf]
-    congr 1
-    funext i
-    apply swf_term_id_of_not_mem
-    · exact fun hc => ha (Set.mem_iUnion.mpr ⟨i, hc⟩)
-    · exact fun hc => hb (Set.mem_iUnion.mpr ⟨i, hc⟩)
-  | conjunction f1 f2 ih1 ih2 =>
-    intro d ha hb
-    simp only [Formula.swf]
-    rw [ih1 d (fun hc => ha (Set.mem_union_left _ hc)) (fun hc => hb (Set.mem_union_left _ hc)),
-      ih2 d (fun hc => ha (Set.mem_union_right _ hc)) (fun hc => hb (Set.mem_union_right _ hc))]
-  | disjunction f1 f2 ih1 ih2 =>
-    intro d ha hb
-    simp only [Formula.swf]
-    rw [ih1 d (fun hc => ha (Set.mem_union_left _ hc)) (fun hc => hb (Set.mem_union_left _ hc)),
-      ih2 d (fun hc => ha (Set.mem_union_right _ hc)) (fun hc => hb (Set.mem_union_right _ hc))]
-  | implication f1 f2 ih1 ih2 =>
-    intro d ha hb
-    simp only [Formula.swf]
-    rw [ih1 d (fun hc => ha (Set.mem_union_left _ hc)) (fun hc => hb (Set.mem_union_left _ hc)),
-      ih2 d (fun hc => ha (Set.mem_union_right _ hc)) (fun hc => hb (Set.mem_union_right _ hc))]
-  | existential_quantification f ih =>
-    intro d ha hb
-    simp only [Formula.swf]
-    rw [ih (d+1) ha hb]
-  | universal_quantification f ih =>
-    intro d ha hb
-    simp only [Formula.swf]
-    rw [ih (d+1) ha hb]
-  | bottom => intro d ha hb; rfl
-
-/-- If neither swapped variable occurs, the swap is the identity. -/
-lemma swf_id_of_not_mem {a b : ℕ} {f : Formula σ}
-    (ha : Term.free a ∉ f.free_terms 0) (hb : Term.free b ∉ f.free_terms 0) :
-    Formula.swf a b 0 f = f :=
-  swf_id_aux f 0 ha hb
-
-/- ### The main theorem -/
 
 theorem swf_proof {a b : ℕ} {Γ : Set (Formula σ)} {B : Formula σ} (h : Γ ⊢ B) :
     ((Formula.swf a b 0) '' Γ) ⊢ (Formula.swf a b 0 B) := by

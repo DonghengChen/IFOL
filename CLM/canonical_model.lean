@@ -17,13 +17,13 @@ pool.  The two directions of the truth lemma that need fresh constants
 (→ᵢ and ∀ᵢ, force → provable) both step one level up.
 
 The final theorem here is completeness under `std Γ p` (Γ has no even
-constants); `z_translate.lean` removes that hypothesis. -/
+constants); `completeness.lean` removes that hypothesis. -/
 
-import CLM.completeness
-import CLM.bijection
+import CLM.henkin
+import CLM.term_bijection
 import CLM.soundness
-import CLM.rename
-import CLM.cv
+import CLM.const_rename
+import CLM.const_gen
 open IFOL
 open Set
 open Classical
@@ -186,7 +186,7 @@ lemma closed {p : Formula σ} {w : Set (Formula σ) × ℕ} (h0 : w ∈ (@M σ).
   · intro h
     exact h0.2.1 p h
 
-/- ### Semantic bridges (`force_rn` is provided by `CLM/rename.lean`) -/
+/- ### Semantic bridges (`force_rn` is provided by `CLM/const_rename.lean`) -/
 
 /-- In the canonical model, forcing only depends on the level-adjusted terms
 denoted by the valuation (and on the valuation landing in the domain). -/

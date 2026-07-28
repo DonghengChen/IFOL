@@ -1,6 +1,6 @@
 import CLM.IFOL
 import CLM.encode_formula
-import CLM.general
+import CLM.proof_lemmas
 open IFOL
 open Set
 open Classical
@@ -26,12 +26,6 @@ induction n with
                  rw[ih]
                  linarith
 
-theorem size_qp_bot{σ:Signature}(q p: (Formula σ))(n:ℕ): Formula.size (qp_bot_form q p n) = Formula.size p + n + 1 + Formula.size q:= by
-simp
-rw [size_p_bot]
-linarith
-
-
 theorem provable_p_bot{σ:Signature}(Γ : Set (Formula σ))(p : (Formula σ))(n:ℕ): (Γ ⊢ p_bot_form p n) ↔ (Γ ⊢ p) := by
 induction n with
   | zero => simp [p_bot_form]
@@ -50,7 +44,7 @@ induction n with
                  apply Proof.introO1
                  exact h0
 
--- `provable_e_bot` is proved in `completeness.lean` (it needs a fresh Henkin
+-- `provable_e_bot` is proved in `henkin.lean` (it needs a fresh Henkin
 -- constant, i.e. the `set_max`/`no_const_max` machinery defined there).
 
 lemma inst_or{σ:Signature}{f1 f2 : Formula σ}{s : Term σ}:
@@ -134,91 +128,3 @@ theorem inf_form_gene{σ:Signature}(p : (Formula σ))(n:ℕ):∃m, n ≤ (@Encod
   exact hneq h2
 
 
-lemma p_bot_form_cross_sub{σ:Signature}{p : (Formula σ)}{n:ℕ}{s t:Term σ}: (p_bot_form (Formula.Substitution p s t) n) = Formula.Substitution (p_bot_form p n) s t := by
-    induction n
-    simp[p_bot_form,Formula.Substitution]
-    rename_i n hn
-    simp[p_bot_form,hn]
-    rw[← hn]
-    generalize eq:(p_bot_form (Formula.Substitution p s t) n∨ᵢ⊥) = q
-    unfold Formula.Substitution
-    simp
-    cases s
-    simp[Formula.Substitution]
-    rw [← eq]
-    simp
-    exact hn
-    simp[Formula.Substitution]
-    rw [← eq]
-    simp
-    exact hn
-
-lemma p_bot_cross_forcesub{σ:Signature}{p : (Formula σ)}{n:ℕ}{s:Term σ}: (p_bot_form (p.force_Substitution s) n) = Formula.force_Substitution (p_bot_form p n) s := by
-    induction n
-    simp[p_bot_form,Formula.Substitution]
-    rename_i n hn
-    simp[p_bot_form,hn]
-    rw[← hn]
-    generalize eq:(p_bot_form (Formula.force_Substitution p s) n∨ᵢ⊥) = q
-    unfold Formula.force_Substitution
-    simp[Formula.force_Substitution]
-    rw[← eq,hn]
-
-lemma p_bot_form_cross_lift{σ:Signature}{p : (Formula σ)}{n k:ℕ}: (p_bot_form (Formula.lift k p) n) = Formula.lift k (p_bot_form p n) := by
-    induction n
-    simp[p_bot_form,Formula.lift]
-    rename_i n hn
-    simp[p_bot_form,hn]
-    rw[← hn]
-    generalize eq:(p_bot_form (Formula.lift k p) n∨ᵢ⊥) = q
-    unfold Formula.lift
-    simp[Formula.lift]
-    rw [← eq]
-    simp
-    exact hn
-
-lemma p_bot_form_cross_down{σ:Signature}{p : (Formula σ)}{n k:ℕ}: (p_bot_form (Formula.down k p) n) = Formula.down k (p_bot_form p n) := by
-    induction n
-    simp[p_bot_form,Formula.down]
-    rename_i n hn
-    simp[p_bot_form,hn]
-    rw[← hn]
-    generalize eq:(p_bot_form (Formula.down k p) n∨ᵢ⊥) = q
-    unfold Formula.down
-    simp[Formula.down]
-    rw [← eq]
-    simp
-    exact hn
-
-theorem inf_form_genp{σ:Signature}(p : (Formula σ))(n:ℕ):∃m, n ≤ (@Encodable.encode (Formula σ) _ (p_bot_form p m)) := by
-  by_contra h0
-  push_neg at h0
-  let mapFin:ℕ → Fin n := fun n=> ⟨Encodable.encode (p_bot_form p n),h0 n⟩
-  have h1:=Finite.exists_ne_map_eq_of_infinite mapFin
-  rcases h1 with ⟨x,y,hneq,hxy⟩
-  simp at hxy
-  have h2:Formula.size (p_bot_form p x) = Formula.size (p_bot_form p y):=by rw[hxy]
-  simp [size_p_bot] at h2
-  exact hneq h2
-
-lemma p_bot_cross_force_down{σ:Signature}{p : (Formula σ)}{n :ℕ}: (p_bot_form (Formula.force_down p) n) = Formula.force_down (p_bot_form p n) := by
-    induction n
-    simp[p_bot_form,Formula.force_down]
-    rename_i n hn
-    simp[p_bot_form,hn]
-    rw[← hn]
-    generalize eq:(p_bot_form (Formula.force_down p) n∨ᵢ⊥) = q
-    unfold Formula.force_down
-    simp[Formula.force_down]
-    rw[← eq,hn]
-
-lemma p_bot_cross_force_lift{σ:Signature}{p : (Formula σ)}{n :ℕ}: (p_bot_form (Formula.force_lift p) n) = Formula.force_lift (p_bot_form p n) := by
-    induction n
-    simp[p_bot_form,Formula.force_lift]
-    rename_i n hn
-    simp[p_bot_form,hn]
-    rw[← hn]
-    generalize eq:(p_bot_form (Formula.force_lift p) n∨ᵢ⊥) = q
-    unfold Formula.force_lift
-    simp[Formula.force_lift]
-    rw[← eq,hn]

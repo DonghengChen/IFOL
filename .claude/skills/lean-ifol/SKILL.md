@@ -34,26 +34,23 @@ lemma exists, check it in the REPL with `#check` or grep
 
 ## Building
 
-There is **no `CLM.lean` root file**, so bare `lake build` fails with
-`no such file or directory: ./CLM.lean`. Build modules explicitly:
+`CLM.lean` is the root (imports `CLM.soundness` + `CLM.completeness`, which
+transitively cover all modules), so a bare `lake build` builds everything:
 
 ```bash
 export PATH="$HOME/.elan/bin:$PATH"
-lake build CLM.completeness2 CLM.de_equations CLM.soundness CLM.z_translate
+lake build            # or: lake build CLM.<module> for one file
 ```
 
-Those four are the leaves; they transitively cover all 13 modules. To check one
-file, `lake build CLM.<module>`.
-
-Import DAG (leaves last):
+Import DAG (2026-07-27 layout, leaves last):
 
 ```
-IFOL ─┬─ encodable ── encode_term ── encode_ts ── encode_formula
-      ├─ general ── pigeon ── completeness ─┬─ completeness2  (+ bijection)
-      │                                     └─ z_translate
-      ├─ bijection
+IFOL ─┬─ encodable ── encode_term ─┬─ encode_ts ── encode_formula
+      │                            └─ term_bijection
+      ├─ proof_lemmas ── pigeon ── henkin (Henkin/prime theories)
       ├─ soundness
-      └─ de_equations
+      ├─ const_rename (zc-translation), var_swap ── const_gen
+      └─ canonical_model (truth lemma) ── completeness (final theorem)
 ```
 
 Restoring Mathlib `.olean`s after a clean (fast, uses the upstream cache):
@@ -72,7 +69,7 @@ stdin (blank line ends each) and writes JSON on stdout.
 Check a snippet against the project environment:
 
 ```bash
-printf '{"cmd": "import CLM.completeness\\nopen IFOL\\nexample (n : Nat) : n + 0 = n := by simp", "env": null}\n\n' \
+printf '{"cmd": "import CLM.henkin\\nopen IFOL\\nexample (n : Nat) : n + 0 = n := by simp", "env": null}\n\n' \
   | ./run-repl.sh
 ```
 
@@ -84,7 +81,7 @@ Response fields:
 Reuse an environment to avoid re-importing Mathlib (which costs ~30–60s):
 
 ```bash
-{ printf '{"cmd": "import CLM.completeness\\nopen IFOL", "env": null}\n\n'
+{ printf '{"cmd": "import CLM.henkin\\nopen IFOL", "env": null}\n\n'
   printf '{"cmd": "#check @Formula.force_form", "env": 0}\n\n'; } | ./run-repl.sh
 ```
 
@@ -108,7 +105,7 @@ module first.
 ## SEMANTICS CHANGED 2026-07-27: expanding domains
 
 The old constant-domain semantics made completeness FALSE (CD axiom valid but
-underivable — see `/constant_domain_gap.lean`, now a historical non-compiling
+underivable — see git history (`constant_domain_gap.lean`, deleted in cleanup), a historical
 record). `model` (CLM/IFOL.lean) now has `D : world → Set A` and
 `D_mono : R u v → D u ⊆ D v`; `force_form`: `∃ᵢ f => ∃ t, t ∈ M.D w ∧ …`;
 `∀ᵢ f => ∀ u, (h:M.R w u) → ∀ t, t ∈ M.D u → force at u (insert t)`;
@@ -120,13 +117,21 @@ because the truth lemma's ∀-case goal contains one even constant).
 
 ## Completeness program status (2026-07-27, **FINISHED — sorry-free end to end**)
 
-`completeness_final : (Γ ⊧ p) → (Γ ⊢ p)` (z_translate.lean) and `soundness`
+`completeness_final : (Γ ⊧ p) → (Γ ⊢ p)` (completeness.lean) and `soundness`
 both lake-build and depend only on [propext, Quot.sound, Classical.choice]
-(REPL `#print axioms` audited; no sorryAx). Build the chain with
-`lake build CLM.z_translate CLM.soundness`. `de_equations.lean` is dead
-pre-existing scratch (syntax error + sorries, imported by nothing) — ignore;
-there is no `CLM.lean` root, so package-level bare `lake build` fails by
-design: always build per-module.
+(REPL `#print axioms` audited; no sorryAx). Bare `lake build` builds the
+whole package via the `CLM.lean` root.
+
+Cleanup 2026-07-27 (post-completion): modules renamed — completeness.lean →
+henkin.lean, canonical_model.lean was completeness2.lean, the final theorem file
+completeness.lean was z_translate.lean, const_gen.lean was cv.lean,
+const_rename.lean was rename.lean, var_swap.lean was swap.lean, proof_lemmas.lean
+was general.lean, term_bijection.lean was bijection.lean. Deleted: de_equations
+(dead scratch), counterexample.lean and constant_domain_gap.lean (obsolete
+constant-domain history — recover from git if needed), CLM.rar, plus ~450 lines
+of unused declarations. CAUTION when pruning "unused" lemmas: several are
+`@[simp]`-tagged and used silently by bare `simp` (mem_ft_const*, size_of_*,
+znF_*) — always rebuild the full chain after removal.
 
 Design: canonical model with a language tower. Worlds = (prime consistent
 theory, level k); `R (Δ,k) (Θ,l) = k ≤ l ∧ znF (l-k) '' Δ ⊆ Θ ∧ (Θ,l) ∈ worlds`;
@@ -138,11 +143,11 @@ Truth lemma: `force (valL k) p at (Δ,k) ↔ Δ ⊢ p`.
 
 | Module | Status |
 |---|---|
-| `rename.lean` (NEW) | **DONE, sorry-free.** Injective constant renaming `Term.rn/Formula.rn`, `consts`, `rename_proof`, `zc c = 2c+1`, `unz N` (explicit inverse-below-N injection), `z_provable_iff : (Γ⊢p) ↔ (rn zc '' Γ ⊢ rn zc p)`, `z_image_std`, `zc_consts_odd`, `rn_consts`, commutations rn/lift/down/Subst/inst/gen, FV transports. All inside `namespace IFOL` (Lean 4.0.0 needs this for dot notation). |
-| `swap.lean` (NEW) | Free-variable swap `swf a b d` (d = binder depth; outer var x has index x+d), `swf_proof`, commutations (swf_inst_aux over Subst(free j)+down j with "e has no index ≤ j" hypothesis; swf_gen_aux), FV transports, `swf_id_of_not_mem`. **DONE, sorry-free.** |
-| `cv.lean` (NEW) | `cv c x d` = capture-avoiding const c ↦ free x. `subst_cv` (finite contexts; per-case discipline: run IHs at super-fresh x', assemble, then `swf_proof` swap x↔x' — legal because x ∉ FV(Γ)∪FV(B) by hypothesis and x' by choice; `swf_cv` rewrites the swapped sequent). `const_gen : Γ ⊢ A.inst(const c) → c fresh → Γ ⊢ ∀ᵢA` via Finset_proof + fresh var + subst_cv + introF + `inst_gen_id`. **DONE, sorry-free** (agent-completed; axioms clean). |
-| `completeness2.lean` | **COMPLETE modulo `const_gen`** (REPL-verified 0 errors with a sorried const_gen stub). Model fields, `force_tm_agree`, `force_shift` (general-u form), `bridge_univ`, `no_even_in_z_image/consts`, `tt_atomic/tt_bot`, full truth lemma `model_tt_iff_prf_aux` (all 6 cases incl. both level-(k+1) successor constructions), `completeness (hstd)`. `force_rn` lives in rename.lean. **DONE, lake-builds** (`import CLM.cv` re-enabled). |
-| `z_translate.lean` | REWRITTEN & REPL-verified (0 errors on the stubbed chain): `z_semantic` (semantic transfer via force_rn with valuation v∘rn zc — no inverse map needed) + `completeness_final : (Γ ⊧ p) → (Γ ⊢ p)` unconditioned. |
+| `const_rename.lean` (NEW) | **DONE, sorry-free.** Injective constant renaming `Term.rn/Formula.rn`, `consts`, `rename_proof`, `zc c = 2c+1`, `unz N` (explicit inverse-below-N injection), `z_provable_iff : (Γ⊢p) ↔ (rn zc '' Γ ⊢ rn zc p)`, `z_image_std`, `zc_consts_odd`, `rn_consts`, commutations rn/lift/down/Subst/inst/gen, FV transports. All inside `namespace IFOL` (Lean 4.0.0 needs this for dot notation). |
+| `var_swap.lean` (NEW) | Free-variable swap `swf a b d` (d = binder depth; outer var x has index x+d), `swf_proof`, commutations (swf_inst_aux over Subst(free j)+down j with "e has no index ≤ j" hypothesis; swf_gen_aux), FV transports. **DONE, sorry-free.** (`swf_id_of_not_mem`/`swf_invol`/`swf_size` were pruned as unused in the cleanup.) |
+| `const_gen.lean` (NEW) | `cv c x d` = capture-avoiding const c ↦ free x. `subst_cv` (finite contexts; per-case discipline: run IHs at super-fresh x', assemble, then `swf_proof` swap x↔x' — legal because x ∉ FV(Γ)∪FV(B) by hypothesis and x' by choice; `swf_cv` rewrites the swapped sequent). `const_gen : Γ ⊢ A.inst(const c) → c fresh → Γ ⊢ ∀ᵢA` via Finset_proof + fresh var + subst_cv + introF + `inst_gen_id`. **DONE, sorry-free** (agent-completed; axioms clean). |
+| `canonical_model.lean` | **COMPLETE modulo `const_gen`** (REPL-verified 0 errors with a sorried const_gen stub). Model fields, `force_tm_agree`, `force_shift` (general-u form), `bridge_univ`, `no_even_in_z_image/consts`, `tt_atomic/tt_bot`, full truth lemma `model_tt_iff_prf_aux` (all 6 cases incl. both level-(k+1) successor constructions), `completeness (hstd)`. `force_rn` lives in const_rename.lean. **DONE, lake-builds** (`import CLM.const_gen` re-enabled). |
+| `completeness.lean` | REWRITTEN & REPL-verified (0 errors on the stubbed chain): `z_semantic` (semantic transfer via force_rn with valuation v∘rn zc — no inverse map needed) + `completeness_final : (Γ ⊧ p) → (Γ ⊢ p)` unconditioned. |
 
 Truth lemma case plan (sizes via rn_size; IH on formula size):
 - →ᵢ force→prf: if ¬(Δ∪{f1} ⊢ f2), set Θ := prime (znF 1 '' (Δ∪{f1})) (znF 1 f2),
@@ -168,11 +173,11 @@ completeness2 imports completeness, bijection, soundness, rename, cv.
 
 ## Older repairs (2026-07-27, earlier)
 
-`soundness.lean`, `completeness.lean`, `pigeon.lean` sorry-free (see git log).
-`de_equations.lean` still a broken scratch file (parse error :149) — untouched.
+`soundness.lean`, `henkin.lean`, `pigeon.lean` sorry-free (see git log).
+`de_equations.lean` (broken scratch) was deleted in the 2026-07-27 cleanup.
 
 **Quantifier rules were repaired on 2026-07-27** (the old system was provably
-unsound — see the historical machine-checked refutation in `/counterexample.lean`,
+unsound — see the historical machine-checked refutation in `counterexample.lean` (deleted in cleanup; in git history),
 which intentionally no longer compiles). Current state of `CLM/IFOL.lean`:
 - `Formula.inst A τ := (A.Substitution (Term.free 0) (τ.lift 0)).down 0` —
   instantiate a quantifier body at τ (outer coordinates).
@@ -183,7 +188,7 @@ which intentionally no longer compiles). Current state of `CLM/IFOL.lean`:
   Δ∪{A.inst τ}⊢B → τ∉FV Δ → τ∉FV B → τ∉FV(∃ᵢA) → Γ∪Δ⊢B` (the last freshness
   condition is NEW).
 - The old `force_lift`/`force_down`/`force_Substitution`/`iforce_Substitution`
-  are kept only because `pigeon.lean`/`completeness.lean` still mention them;
+  are kept only because `pigeon.lean`/`henkin.lean` still mention them;
   they are cutoff-broken — never use them in new proofs, use `inst`/`gen`.
 
 **`CLM/soundness.lean` is fully proved** (no sorry). Its lemma toolkit is
@@ -192,7 +197,7 @@ reusable for the completeness rework: `force_inst` (forcing–instantiation),
 `force_agree` (coincidence lemma), `mem_free_terms_lift`, and the valuation
 combinators `insert_at`/`update_free`/`update_term`/`skip_val`.
 
-`completeness.lean` now breaks at 3 sites (Finset_proof `introE`/`elimE` cases,
+`henkin.lean` now breaks at 3 sites (Finset_proof `introE`/`elimE` cases,
 `insertn_prf` :539) and needs `has_const`/`insert_c` switched from
 `force_Substitution/force_down` to `Formula.inst`. Known design gap: the Henkin
 witness constant in `insertn`/`insertn_prf` is chosen fresh only w.r.t. the
