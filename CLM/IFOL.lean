@@ -182,6 +182,18 @@ match f with
 def Set.free_terms (Γ : Set (Formula σ)) : Set (Term σ) :=
   ⋃ (f ∈ Γ), f.free_terms 0
 
+/-- Instantiate the body `A` of a quantifier with the term `τ` (given in outer
+coordinates): the variable bound at depth 0 is replaced by `τ` and the remaining
+indices are lowered past the removed binder. -/
+def Formula.inst (A : Formula σ) (τ : Term σ) : Formula σ :=
+  (A.Substitution (Term.free 0) (τ.lift 0)).down 0
+
+/-- Abstract the free variable `x` of `A` into a variable bound at depth 0:
+all indices are lifted to make room for the new binder, then the (lifted)
+occurrences of `x` are replaced by the de Bruijn index of the binder. -/
+def Formula.gen (A : Formula σ) (x : Nat) : Formula σ :=
+  (A.lift 0).Substitution (Term.free (x+1)) (Term.free 0)
+
 
 inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Prop
 | ref        : (A ∈ Γ) → Proof Γ A
@@ -195,14 +207,15 @@ inductive Proof : (Γ:Set (Formula σ)) → Formula σ → Prop
 | elimO   {A B C Γ}: Proof Γ (A ∨ᵢ B) → Proof (Γ ∪ {A}) C → Proof (Γ ∪ {B}) C → Proof Γ C
 | botE {Γ}(A): Proof Γ ⊥ → Proof Γ A
 | introF {A: Formula σ}{Γ}{x:Nat} :
-Proof Γ A → (Term.free x) ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.force_lift).iforce_Substitution (x+1))
+Proof Γ A → (Term.free x) ∉ (Set.free_terms Γ) → Proof Γ (∀ᵢ (A.gen x))
 | elimF  {A: Formula σ}{Γ}(τ: Term σ) :
-Proof Γ (∀ᵢ A) → Proof Γ ((A.force_Substitution τ).force_down)
-| introE {A : Formula σ}{Γ}{t: Term σ}{v : ℕ} :
-Proof Γ (A.Substitution (Term.free v) t)  → Proof Γ (∃ᵢ (A.force_lift).iforce_Substitution (v+1))
+Proof Γ (∀ᵢ A) → Proof Γ (A.inst τ)
+| introE {A : Formula σ}{Γ}(τ: Term σ) :
+Proof Γ (A.inst τ) → Proof Γ (∃ᵢ A)
 | elimE {A B: Formula σ}{Γ Δ: Set (Formula σ)}{τ: Term σ}:
-Proof Γ (∃ᵢ A) → Proof (Δ ∪{(A.force_Substitution τ).force_down}) B →
-τ ∉ (Set.free_terms Δ) → τ ∉ (Formula.free_terms B 0)  →  Proof (Γ∪Δ) B
+Proof Γ (∃ᵢ A) → Proof (Δ ∪{A.inst τ}) B →
+τ ∉ (Set.free_terms Δ) → τ ∉ (Formula.free_terms B 0) →
+τ ∉ (Formula.free_terms (∃ᵢ A) 0) → Proof (Γ∪Δ) B
 
 notation Γ "⊢" A => Proof Γ A
 
@@ -212,7 +225,8 @@ notation Γ "⊢" A => Proof Γ A
 structure model (σ : Signature) where
   world : Type
   W: Set world
-  A : Type --Domain
+  A : Type --Domain carrier
+  D : world → Set A --Domain at each world (expanding along R)
   R: world → world → Prop
   α: (w:world) → (r : Nat) → (Fin (σ.arity' r) → A) → Prop
   refl : ∀ w ∈ W, R w w
@@ -220,6 +234,7 @@ structure model (σ : Signature) where
   mono: (u v:world) → (h1: u ∈ W) → (h2: v ∈ W) → (r: Nat) →
     (args : (Fin (σ.arity' r) → A)) → (h: R u v) → α u r args →  (α v r args)--(mono u v h1 h2 h) --(α v r (fun x => mono u v h1 h2 h (args x)))
   R_closed : (u v:world) →  R u v → (u ∈ W)  → (v ∈ W)
+  D_mono : (u v:world) → (u ∈ W) → R u v → D u ⊆ D v
 
 def insert_value_function (M : model σ) (v : Term σ → M.A) (item : M.A) : Term σ → M.A --head insert from zero
 | .free n => if n=0 then item else v (.free (n-1))
@@ -230,8 +245,8 @@ def Formula.force_form (M:model σ)(w : M.world) (hw: w ∈ M.W) (v : Term σ �
 | f1 →ᵢ f2 => ∀ u, (h:M.R w u) → (f1.force_form  M u (M.R_closed w u h hw) v) → (f2.force_form  M u (M.R_closed w u h hw) v)
 | f1 ∧ᵢ f2 => (f1.force_form  M w hw v) ∧ (f2.force_form  M w hw v)
 | f1 ∨ᵢ f2 => (f1.force_form  M w hw v) ∨ (f2.force_form  M w hw v)
-| ∃ᵢ f => ∃ (t:M.A), f.force_form M w hw (insert_value_function M v t)
-| ∀ᵢ f => ∀ (t:M.A), f.force_form M w hw (insert_value_function M v t)
+| ∃ᵢ f => ∃ (t:M.A), t ∈ M.D w ∧ f.force_form M w hw (insert_value_function M v t)
+| ∀ᵢ f => ∀ u, (h:M.R w u) → ∀ (t:M.A), t ∈ M.D u → f.force_form M u (M.R_closed w u h hw) (insert_value_function M v t)
 | ⊥ => False
 
 lemma strong_connected {σ : Signature}(M: model σ)(u v w:M.world)(h0: u ∈ M.W)(h1: M.R u v)(h2: M.R v w):M.R u w := by
@@ -249,13 +264,19 @@ lemma Formula.mono_proof {σ : Signature}(M: model σ)(u v:M.world)(hr: M.R u v)
     have h6: _ :=  strong_connected M u v w2 hw hr hw2
     h1 w2 h6
   | existential_quantification f =>
-    let ⟨t,ht⟩ := h1
-    ⟨t,(Formula.mono_proof M u v hr f hw (insert_value_function M val t) ht)⟩
-  | universal_quantification f => fun t =>
-    Formula.mono_proof M u v hr f hw (insert_value_function M val t) (h1 t)
+    let ⟨t,htD,ht⟩ := h1
+    ⟨t,M.D_mono u v hw hr htD,(Formula.mono_proof M u v hr f hw (insert_value_function M val t) ht)⟩
+  | universal_quantification _ => fun w2 hw2 t htD =>
+    have h6: _ := strong_connected M u v w2 hw hr hw2
+    h1 w2 h6 t htD
+
+/-- A valuation is admissible at world `w` when every term denotes an element
+of the domain `D w` of that world. -/
+def val_in {σ : Signature} (M : model σ) (w : M.world) (v : Term σ → M.A) : Prop :=
+∀ t, v t ∈ M.D w
 
 def semantic_consequence {σ : Signature} (Γ : Set (Formula σ)) (A : Formula σ) : Prop :=
-∀ (M : model σ), ∀ (w : M.world), ∀ (v : Term σ → M.A)(hw), (∀ (f :Formula σ ),f ∈ Γ → f.force_form  M w hw v) → A.force_form  M w hw v
+∀ (M : model σ), ∀ (w : M.world), ∀ (v : Term σ → M.A)(hw), val_in M w v → (∀ (f :Formula σ ),f ∈ Γ → f.force_form  M w hw v) → A.force_form  M w hw v
 
 notation Γ "⊧" A => semantic_consequence Γ A
 

@@ -15,7 +15,7 @@ def has_disj (Γ : Set (Formula σ)):=
 ∀ (f g : Formula σ),((f ∨ᵢ g) ∈ Γ) → ((f ∈ Γ) ∨ (g ∈ Γ))
 
 def has_const (Γ : Set (Formula σ)):=
-∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(n c:ℕ),( p_bot_form ((f.force_Substitution (Term.const c)).force_down) n) ∈ Γ)
+∀ (f : Formula σ),((∃ᵢ f) ∈ Γ) → (∃(n c:ℕ),( p_bot_form (f.inst (Term.const c)) n) ∈ Γ)
 
 def is_prime (Γ : Set (Formula σ)):=
 is_closed Γ ∧ has_disj Γ ∧ has_const Γ
@@ -26,8 +26,8 @@ def is_inf{σ:Signature}(Γ : Set (Formula σ))(bound:ℕ):=∀ N: ℕ, N ≥ bo
 def insert_form (Γ : Set (Formula σ)) (p q r: Formula σ):Set (Formula σ) :=
 if ((Γ∪{p})⊢ r) then {q} else {p}
 
-def insert_c (_ : Set (Formula σ)) (f: Formula σ)(b:ℕ): Set (Formula σ):=by
-    exact {(f.force_Substitution (Term.const (2*b))).force_down}
+def insert_c (_ : Set (Formula σ)) (f: Formula σ)(b:ℕ): Set (Formula σ):=
+    {f.inst (Term.const (2*b))}
 
 
 def if_elim {P:Prop}{α}{a}{X Y:Set α}(h1: a ∈ X)(h2: a ∈ Y): a ∈ (if P then X else Y):= by by_cases P;repeat simp[*]
@@ -162,16 +162,86 @@ lemma no_const_max {σ: Signature}{Γ: Set (Formula σ)}(h:Set.Finite Γ): Term.
   rw[h1] at hc
   trivial
 
+/-- `Γ ⊢ ∃ᵢ(p ∨ᵢ ⊥ ∨ᵢ …) ↔ Γ ⊢ ∃ᵢ p`.  Proved here (rather than in
+`pigeon.lean`) because eliminating the existential needs a witness constant
+fresh for `∃ᵢ p`, supplied by the `set_max`/`no_const_max` machinery. -/
+theorem provable_e_bot{σ:Signature}(Γ : Set (Formula σ))(p : (Formula σ))(n:ℕ):
+    (Γ ⊢ e_bot_form p n) ↔ (Γ ⊢ ∃ᵢ p) := by
+  have hfin : Set.Finite ({∃ᵢ p} : Set (Formula σ)) := Set.finite_singleton _
+  have hfresh : Term.const (2 * set_max hfin) ∉ Formula.free_terms (∃ᵢ p) 0 := by
+    intro hc
+    apply no_const_max hfin
+    simp only [free_terms, Set.mem_iUnion]
+    exact ⟨∃ᵢ p, rfl, hc⟩
+  have hfresh2 : Term.const (2 * set_max hfin) ∉ Formula.free_terms (∃ᵢ (p_bot_form p n)) 0 := by
+    intro hc
+    apply hfresh
+    simp only [Formula.free_terms] at hc ⊢
+    rw [ft_p_bot] at hc
+    exact hc
+  have hempty : Term.const (2 * set_max hfin) ∉ free_terms (∅ : Set (Formula σ)) := by
+    simp [free_terms]
+  constructor
+  · intro h
+    unfold e_bot_form at h
+    have h2 : Proof ((∅ : Set (Formula σ))
+        ∪ {Formula.inst (p_bot_form p n) (Term.const (2 * set_max hfin))}) (∃ᵢ p) := by
+      apply Proof.introE (Term.const (2 * set_max hfin))
+      rw [← p_bot_cross_inst]
+      apply (provable_p_bot _ _ n).mp
+      apply Proof.ref
+      simp
+    have h5 := Proof.elimE h h2 hempty hfresh hfresh2
+    rw [Set.union_empty] at h5
+    exact h5
+  · intro h
+    have h2 : Proof ((∅ : Set (Formula σ))
+        ∪ {Formula.inst p (Term.const (2 * set_max hfin))}) (e_bot_form p n) := by
+      unfold e_bot_form
+      apply Proof.introE (Term.const (2 * set_max hfin))
+      rw [← p_bot_cross_inst]
+      apply (provable_p_bot _ _ n).mpr
+      apply Proof.ref
+      simp
+    have hfreshB : Term.const (2 * set_max hfin) ∉ Formula.free_terms (e_bot_form p n) 0 := by
+      unfold e_bot_form
+      exact hfresh2
+    have h5 := Proof.elimE h h2 hempty hfreshB hfresh
+    rw [Set.union_empty] at h5
+    exact h5
+
 structure finForms (σ:Signature) where
   S: Set (Formula σ)
   h:Set.Finite S
 
 
 
+/-- The formula decoded at step `n` (as a finite set, so that its constants can
+be fed into `set_max`: the Henkin witness chosen at step `n+1` must be fresh not
+only for everything inserted so far but also for the decoded formula itself —
+the decoded formula may well contain even constants introduced at earlier
+steps). -/
+def decode_set (n : ℕ) : Set (Formula σ) :=
+  match @Encodable.decode (Formula σ) _ n with
+  | some f => {f}
+  | none => ∅
+
+lemma fin_decode_set {n : ℕ} : (@decode_set σ n).Finite := by
+  cases h : (@Encodable.decode (Formula σ) instEncodableFormula n) with
+  | none => simp [decode_set, h]
+  | some f => simp [decode_set, h]
+
 @[simp]
 def insertn (Γ: Set (Formula σ))(r: Formula σ):ℕ → finForms σ
 | 0 => ⟨∅, by simp⟩
-| n+1 => by have h0: Set.Finite (⋃ i:Fin (n+1), (insertn Γ r i).S):= by apply Set.finite_iUnion;intro i;exact (insertn Γ r i).h
+| n+1 => by have h0: Set.Finite (((⋃ i:Fin (n+1), (insertn Γ r i).S) ∪ decode_set n) ∪ {r}):= by
+              apply Set.Finite.union
+              apply Set.Finite.union
+              apply Set.finite_iUnion
+              intro i
+              exact (insertn Γ r i).h
+              exact fin_decode_set
+              exact Set.finite_singleton r
             let c:=set_max h0
             let s:=insert_code (Γ ∪ ⋃ i:Fin (n+1), (insertn Γ r i).S) r n c
             have hs: Set.Finite s:= by apply fin_insert_code
@@ -341,21 +411,19 @@ induction h with
   apply Proof.elimF
   assumption
   assumption
-| introE _ h1 =>
+| introE τ _ h1 =>
   rcases h1 with ⟨Γ',h31,h32,h33⟩
   use Γ'
   constructor;
   assumption
   constructor;
-  apply Proof.introE
+  exact Proof.introE τ h32
   assumption
-  assumption
-| elimE A h1 P S h2 h3 =>
+| elimE hp1 hp2 P S P2 h2 h3 =>
   rename_i Q B C D E
   rcases h3 with ⟨Γ',h71,h72,h73⟩
   rcases h2 with ⟨Γ'',h61,h62,h63⟩
-  generalize eq : Formula.force_down (Formula.force_Substitution Q E) = z
-  rw [eq] at h1
+  generalize eq : Formula.inst Q E = z
   rw [eq] at h71
   use (Γ'\{z}) ∪ Γ''
   constructor;
@@ -377,6 +445,7 @@ induction h with
   simp [hxx] at s
   exact s
   assumption
+  exact P2
   apply Finite.union
   apply Finite.diff
   assumption
@@ -447,7 +516,11 @@ lemma ind(n:Nat): n=0 ∨ ∃ m, n=m+1 := by
   rename_i q
   use q
 
-def std{σ:Signature}(Γ :  Set (Formula σ))(r: Formula σ): Prop := is_inf Γ 0 ∧ is_inf {r} 0 --standard condition
+/-- Standard condition: the base theory uses no even constants (they are all
+reserved as Henkin witnesses).  Note the goal `r` is *not* constrained any
+more: the witness constants are kept away from `r` by the construction itself
+(`insertn`'s `set_max` ranges over `{r}` as well). -/
+def std{σ:Signature}(Γ :  Set (Formula σ))(_: Formula σ): Prop := is_inf Γ 0
 
 
 lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat}(hstd:std Γ p) :
@@ -535,28 +608,44 @@ lemma insertn_prf {Γ :  Set (Formula σ)} {p: Formula σ} {i:Nat}(hstd:std Γ p
   push_neg at hext;simp[hext] at h
   rw[eq] at hext
   unfold insert_c at h
+  have hfin : Set.Finite (insert p ((⋃ (i : Fin (ni + 1)), (insertn Γ p ↑i).S) ∪ decode_set ni)) := by
+    apply Set.Finite.insert
+    apply Set.Finite.union
+    apply Set.finite_iUnion
+    intro i
+    exact (insertn Γ p i).h
+    exact fin_decode_set
+  have hmax := no_const_max hfin
   rw[← union_self S]
   apply Proof.elimE hext h
-  generalize eq8:set_max (_ : Set.Finite (⋃ (i : Fin (ni + 1)), (insertn Γ p ↑i).S)) = i
-  have h0:=hstd.1 i (by linarith)
-  rw [← eq]
-  simp [free_terms]
-  intro x hx
-  cases hx with
-  | inl hl=> simp[free_terms] at h0; exact h0 x hl
-  | inr hr=> simp[free_terms] at h
-             rcases hr with ⟨ii,hii⟩
-             have hsfin: Set.Finite (⋃ i:Fin (ni+1), (insertn Γ p i).S):= by apply Set.finite_iUnion
-                                                                             intro i;exact (insertn Γ p i).h
-             have hmax:=no_const_max hsfin
-             rw [← eq8]
-             simp[free_terms] at hmax
-             have hmax2:=hmax x ii hii
-             exact hmax2
-  generalize eq8:set_max (_ : Set.Finite (⋃ (i : Fin (ni + 1)), (insertn Γ p ↑i).S)) = i
-  have h0:=hstd.2 i (by linarith)
-  simp [free_terms] at h0
-  exact h0
+  -- the witness constant is fresh for Δ = S
+  · generalize eq8:set_max (_ : Set.Finite (insert p ((⋃ (i : Fin (ni + 1)), (insertn Γ p ↑i).S) ∪ decode_set ni))) = i
+    have h0:=hstd i (Nat.zero_le i)
+    rw [← eq]
+    simp [free_terms]
+    intro x hx
+    cases hx with
+    | inl hl=> simp[free_terms] at h0; exact h0 x hl
+    | inr hr=> rcases hr with ⟨ii,hii⟩
+               rw [← eq8]
+               intro hc
+               apply hmax
+               simp only [free_terms, Set.mem_iUnion]
+               refine ⟨x, Set.mem_insert_of_mem p (Or.inl ?_), hc⟩
+               simp only [Set.mem_iUnion]
+               exact ⟨ii, hii⟩
+  -- the witness constant is fresh for the goal p: `set_max` ranged over {p}
+  · intro hc
+    apply hmax
+    simp only [free_terms, Set.mem_iUnion]
+    exact ⟨p, Set.mem_insert p _, hc⟩
+  -- the witness constant is fresh for the eliminated formula ∃ᵢf itself:
+  -- ∃ᵢf is exactly the formula decoded at this step, and set_max ranged over it
+  · intro hc
+    apply hmax
+    simp only [free_terms, Set.mem_iUnion]
+    refine ⟨∃ᵢ f, Set.mem_insert_of_mem p (Or.inr ?_), hc⟩
+    simp [decode_set, h0, hq]
 
 
 
@@ -748,7 +837,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
     cases hf with
     | inl hl=> generalize eq2:Encodable.encode (∃ᵢf) = num
                let sset := insertn Γ r (num+1)
-               have h1:∃ c, Formula.force_down (Formula.force_Substitution f (Term.const c)) ∈ sset.S := by
+               have h1:∃ c, Formula.inst f (Term.const c) ∈ sset.S := by
                   have :@Encodable.decode (Formula σ) instEncodableFormula num = (∃ᵢf) := by rw[← eq2];simp
                   simp [this]
                   constructor
@@ -770,7 +859,7 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
                 rcases h1 with ⟨m,hm⟩
                 unfold prime
                 use m
-                suffices hs:∃ c, p_bot_form (Formula.force_down (Formula.force_Substitution f (Term.const c))) m ∈ ⋃ (n : ℕ), (insertn Γ r n).S
+                suffices hs:∃ c, p_bot_form (Formula.inst f (Term.const c)) m ∈ ⋃ (n : ℕ), (insertn Γ r n).S
                 rcases hs with ⟨c,hc⟩
                 use c
                 right;exact hc
@@ -795,12 +884,11 @@ lemma prime_of_prime {Γ :  Set (Formula σ)} {r : Formula σ} :
                 simp[e_bot_form] at this
                 exact this
 
-                generalize eqx:2 * set_max (_ : Set.Finite (⋃ (i : Fin (num + 1)), (insertn Γ r ↑i).S))=x
+                generalize eqx:2 * set_max (_ : Set.Finite (insert r ((⋃ (i : Fin (num + 1)), (insertn Γ r ↑i).S) ∪ decode_set num)))=x
                 use x
                 simp[insert_c]
                 rw[eqx]
-                rw[← @p_bot_cross_forcesub σ f m (Term.const x)]
-                rw[← @p_bot_cross_force_down σ _ m]
+                exact p_bot_cross_inst
 
 
 lemma prime_no_prf {Γ :  Set (Formula σ)} {r : Formula σ} (h : ¬ (Γ ⊢ r))(hstd: std Γ r) :

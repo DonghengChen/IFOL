@@ -1,71 +1,35 @@
-import CLM.IFOL
-import CLM.encode_formula
-import CLM.general
-import CLM.pigeon
-import CLM.completeness
+/- Removing the `std` hypothesis from completeness.
+
+`canonical.completeness` (CLM/completeness2.lean) proves `(Γ ⊧ p) → (Γ ⊢ p)`
+under `std Γ p` — no even constants in Γ.  The z-translation `rn zc`
+(constants `c ↦ 2c+1`) makes any theory satisfy `std`; it preserves semantic
+consequence (`z_semantic`, using the general bridge `force_rn`: pre-composing
+the valuation with the renaming) and reflects provability (`z_provable_iff`,
+CLM/rename.lean).  Chaining the three gives unconditional completeness. -/
+
+import CLM.completeness2
 open IFOL
 open Set
 open Classical
 
-def z_term {σ:Signature}(t: Term σ): Term σ :=
- match t with
- | .free n => .free n
- | .const c => .const (2*c+1)
+variable {σ : Signature}
 
-def z_formula {σ:Signature}(φ: Formula σ): Formula σ :=
-match φ with
-| .atomic_formula r ts=> (# r) (fun x=> z_term (ts x))
-| f1 →ᵢ f2 => (z_formula f1) →ᵢ (z_formula f2)
-| f1 ∧ᵢ f2 => (z_formula f1) ∧ᵢ (z_formula f2)
-| f1 ∨ᵢ f2 => (z_formula f1) ∨ᵢ (z_formula f2)
-| ⊥ => ⊥
-| ∃ᵢ f => ∃ᵢ z_formula f
-| ∀ᵢ f => ∀ᵢ z_formula f
+/-- The z-translation preserves semantic consequence. -/
+lemma z_semantic {Γ : Set (Formula σ)} {p : Formula σ} (h : Γ ⊧ p) :
+    ((Formula.rn zc) '' Γ) ⊧ (Formula.rn zc p) := by
+  intro M0 w v hw hval hsat
+  rw [force_rn]
+  apply h M0 w (fun t => v (Term.rn zc t)) hw
+  · intro t
+    exact hval _
+  · intro f hf
+    rw [← force_rn]
+    exact hsat _ (Set.mem_image_of_mem _ hf)
 
-def z_set {σ:Signature}(Γ: Set (Formula σ)): Set (Formula σ) :=
-⋃ (f ∈ Γ), {z_formula f}
-
-
-def weak_provable{σ:Signature}(f: Formula σ): (∅⊢ f)↔ (∅ ⊢ (z_formula f)) := by
-  sorry
-  -- constructor
-  -- intro h
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def bi_provable {σ:Signature}(Γ: Set (Formula σ))(f: Formula σ): (Γ ⊢ f) ↔ ((z_set Γ) ⊢ (z_formula f)) := by
-  constructor
+/-- Completeness of intuitionistic first-order logic for expanding-domain
+Kripke semantics — no side conditions. -/
+theorem completeness_final {Γ : Set (Formula σ)} {p : Formula σ} :
+    (Γ ⊧ p) → (Γ ⊢ p) := by
   intro h
-  have h1:= Finset_proof h
-  rcases h1 with ⟨G,h2,h3,h4⟩
-  suffices h5:z_set G ⊢ z_formula f
-  apply subset_proof h5
-  simp [z_set]
-  intro i hi
-  use i
-  constructor
-  exact h2 hi
-  rfl
-  induction h
-  sorry
-  simp[z_formula]
-  apply Proof.introI
-
-
-  sorry
-  sorry
+  apply (z_provable_iff Γ p).mpr
+  exact canonical.completeness (z_image_std Γ (Formula.rn zc p)) (z_semantic h)

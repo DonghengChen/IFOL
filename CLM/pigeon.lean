@@ -50,9 +50,28 @@ induction n with
                  apply Proof.introO1
                  exact h0
 
-theorem provable_e_bot{σ:Signature}(Γ : Set (Formula σ))(p : (Formula σ))(n:ℕ): (Γ ⊢ e_bot_form p n) ↔ (Γ ⊢ ∃ᵢ p) := by
-simp[e_bot_form]
-sorry
+-- `provable_e_bot` is proved in `completeness.lean` (it needs a fresh Henkin
+-- constant, i.e. the `set_max`/`no_const_max` machinery defined there).
+
+lemma inst_or{σ:Signature}{f1 f2 : Formula σ}{s : Term σ}:
+    Formula.inst (f1 ∨ᵢ f2) s = ((Formula.inst f1 s) ∨ᵢ (Formula.inst f2 s)) := by
+  simp [Formula.inst, Formula.Substitution, Formula.down]
+
+lemma inst_bot{σ:Signature}{s : Term σ}:
+    Formula.inst (Formula.bottom : Formula σ) s = Formula.bottom := by
+  simp [Formula.inst, Formula.Substitution, Formula.down]
+
+lemma p_bot_cross_inst{σ:Signature}{p : (Formula σ)}{n:ℕ}{s:Term σ}:
+    (p_bot_form (Formula.inst p s) n) = Formula.inst (p_bot_form p n) s := by
+  induction n with
+  | zero => rfl
+  | succ n hn => simp [p_bot_form, inst_or, inst_bot, hn]
+
+lemma ft_p_bot{σ:Signature}(p : Formula σ)(n b : ℕ) :
+    Formula.free_terms (p_bot_form p n) b = Formula.free_terms p b := by
+  induction n with
+  | zero => rfl
+  | succ n ih => simp [p_bot_form, Formula.free_terms, ih]
 
 
 
